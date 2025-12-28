@@ -40,6 +40,7 @@ app.use('/api/tontines', require('./routes/tontines'));
 app.use('/api/contributions', require('./routes/contributions'));
 app.use('/api/tours', require('./routes/tours'));
 app.use('/api/banque', require('./routes/banque'));
+app.use('/api/solidarites', require('./routes/solidarites'));
 
 // Welcome route
 app.get('/', (req, res) => {
@@ -53,7 +54,8 @@ app.get('/', (req, res) => {
       tontines: '/api/tontines',
       contributions: '/api/contributions',
       tours: '/api/tours',
-      banque: '/api/banque'
+      banque: '/api/banque',
+      solidarites: '/api/solidarites'
     }
   });
 });

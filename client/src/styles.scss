@@ -123,6 +123,53 @@ body {
   }
 }
 
+// ======== DROPDOWN / SELECT OPTIONS - HAUTE VISIBILITÉ ========
+.mat-mdc-select-panel {
+  background-color: #ffffff !important;
+}
+
+.mat-mdc-option {
+  background-color: #ffffff !important;
+  min-height: 48px !important;
+  
+  .mdc-list-item__primary-text {
+    color: #1e293b !important;
+    font-weight: 500 !important;
+    font-size: 15px !important;
+  }
+  
+  &:hover {
+    background-color: #e0f2fe !important;
+  }
+  
+  &.mdc-list-item--selected {
+    background-color: #dbeafe !important;
+    
+    .mdc-list-item__primary-text {
+      color: #1d4ed8 !important;
+      font-weight: 600 !important;
+    }
+  }
+  
+  &:focus {
+    background-color: #f0f9ff !important;
+  }
+}
+
+// Assurer que le texte des options est toujours visible
+.cdk-overlay-pane .mat-mdc-select-panel {
+  background-color: #ffffff !important;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+}
+
+.cdk-overlay-pane .mat-mdc-option {
+  color: #1e293b !important;
+}
+
+.cdk-overlay-pane .mat-mdc-option .mdc-list-item__primary-text {
+  color: #1e293b !important;
+}
+
 // Icons avec couleur appropriée
 .mat-icon {
   color: inherit;

@@ -74,6 +74,11 @@ export const routes: Routes = [
     data: { roles: ['admin', 'tresorier'] }
   },
   {
+    path: 'solidarite',
+    loadComponent: () => import('./pages/solidarite/solidarite.component').then(m => m.SolidariteComponent),
+    canActivate: [authGuard]
+  },
+  {
     path: 'admin/users',
     loadComponent: () => import('./pages/users/users.component').then(m => m.UsersComponent),
     canActivate: [authGuard, roleGuard],

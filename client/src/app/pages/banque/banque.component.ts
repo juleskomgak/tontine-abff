@@ -444,9 +444,65 @@ import { BanqueTontine, Tontine, Transaction, TourRefuse, Member } from '../../m
     h1 { font-size: 32px; font-weight: 700; margin: 0; }
     .subtitle { font-size: 16px; color: var(--text-secondary); margin: 4px 0 0 0; }
     
-    .filter-card { margin-bottom: 24px; border-left: 4px solid #667eea; }
+    /* Filter Card - Haute visibilité */
+    .filter-card { 
+      margin-bottom: 24px; 
+      border-left: 4px solid #667eea; 
+      background-color: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #667eea;
+    }
     .filters-row { display: flex; gap: 20px; flex-wrap: wrap; }
     .filter-field { flex: 1; min-width: 250px; }
+    
+    /* Form Field Labels - Très visible */
+    ::ng-deep .filter-card .mat-mdc-form-field {
+      min-width: 250px;
+    }
+    
+    ::ng-deep .mat-mdc-form-field .mat-mdc-floating-label {
+      color: #0f172a !important;
+      font-weight: 700 !important;
+      font-size: 16px !important;
+    }
+    
+    ::ng-deep .mat-mdc-form-field.mat-focused .mat-mdc-floating-label {
+      color: #2563eb !important;
+    }
+    
+    ::ng-deep .mat-mdc-select-value-text {
+      color: #0f172a !important;
+      font-weight: 600 !important;
+      font-size: 15px !important;
+    }
+    
+    /* Options du dropdown - Fond blanc, texte sombre */
+    ::ng-deep .mat-mdc-select-panel {
+      background-color: #ffffff !important;
+    }
+
+    ::ng-deep .mat-mdc-option {
+      background-color: #ffffff !important;
+    }
+
+    ::ng-deep .mat-mdc-option .mdc-list-item__primary-text {
+      color: #1e293b !important;
+      font-weight: 500 !important;
+      font-size: 14px !important;
+    }
+
+    ::ng-deep .mat-mdc-option:hover {
+      background-color: #e0f2fe !important;
+    }
+
+    ::ng-deep .mat-mdc-option.mdc-list-item--selected {
+      background-color: #dbeafe !important;
+    }
+
+    ::ng-deep .mat-mdc-option.mdc-list-item--selected .mdc-list-item__primary-text {
+      color: #1d4ed8 !important;
+      font-weight: 600 !important;
+    }
     
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 32px; }
     .stat-card { display: flex; align-items: center; gap: 16px; padding: 24px !important; border-left: 4px solid; }
@@ -463,9 +519,72 @@ import { BanqueTontine, Tontine, Transaction, TourRefuse, Member } from '../../m
     .stat-content h3 { margin: 0; font-size: 24px; font-weight: 700; }
     .stat-content p { margin: 4px 0 0 0; font-size: 14px; color: var(--text-secondary); }
     
-    .tab-content { margin-top: 16px; min-height: 400px; }
+    /* Tabs - Labels très visibles */
+    ::ng-deep .mat-mdc-tab-labels {
+      background-color: #f8fafc;
+      border-radius: 8px;
+      padding: 4px;
+    }
+    
+    ::ng-deep .mat-mdc-tab {
+      min-width: 200px !important;
+    }
+    
+    ::ng-deep .mat-mdc-tab .mdc-tab__text-label {
+      color: #1e293b !important;
+      font-weight: 700 !important;
+      font-size: 15px !important;
+      letter-spacing: 0.3px;
+    }
+    
+    ::ng-deep .mat-mdc-tab.mdc-tab--active .mdc-tab__text-label {
+      color: #2563eb !important;
+    }
+    
+    ::ng-deep .mat-mdc-tab .mat-icon {
+      color: #475569 !important;
+      margin-right: 8px;
+    }
+    
+    ::ng-deep .mat-mdc-tab.mdc-tab--active .mat-icon {
+      color: #2563eb !important;
+    }
+    
+    .tab-label-bold { 
+      font-weight: 700 !important; 
+      font-size: 16px !important; 
+      color: #0f172a !important;
+      letter-spacing: 0.3px;
+    }
+    
+    .tab-content { margin-top: 16px; min-height: 400px; border: 1px solid #e2e8f0; }
     .table-container { overflow-x: auto; }
     .transactions-table { width: 100%; }
+    
+    /* Table Headers - Haute visibilité */
+    ::ng-deep .mat-mdc-header-cell {
+      background-color: #1e293b !important;
+      color: #ffffff !important;
+      font-weight: 700 !important;
+      font-size: 14px !important;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 16px 12px !important;
+    }
+
+    ::ng-deep .mat-mdc-cell {
+      color: #1e293b !important;
+      font-size: 14px !important;
+      padding: 12px !important;
+    }
+
+    ::ng-deep .mat-mdc-row:nth-child(even) {
+      background-color: #f8fafc;
+    }
+
+    ::ng-deep .mat-mdc-row:hover {
+      background-color: #e0f2fe !important;
+    }
     
     .type-chip { display: inline-block; padding: 6px 12px; border-radius: 16px; font-size: 12px; font-weight: 600; text-transform: uppercase; color: white; }
     .type-cotisation { background: #10b981; }
@@ -474,42 +593,68 @@ import { BanqueTontine, Tontine, Transaction, TourRefuse, Member } from '../../m
     .type-redistribution { background: #8b5cf6; }
     .type-ajustement { background: #6b7280; }
     
-    .montant-positif { color: #10b981; font-weight: 600; }
-    .montant-negatif { color: #ef4444; font-weight: 600; }
+    .montant-positif { color: #10b981; font-weight: 700; font-size: 15px; }
+    .montant-negatif { color: #ef4444; font-weight: 700; font-size: 15px; }
     
-    .cycle-badge { background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .cycle-badge { background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 700; }
+    
+    /* Expansion Panel - Tours Refusés */
+    ::ng-deep .mat-expansion-panel-header-title {
+      color: #0f172a !important;
+      font-weight: 600 !important;
+    }
+    
+    ::ng-deep .mat-expansion-panel-header-description {
+      color: #475569 !important;
+    }
     
     .refus-list { display: flex; flex-direction: column; gap: 12px; }
     .refus-header { display: flex; align-items: center; gap: 12px; flex: 1; }
-    .beneficiaire-name { font-weight: 600; flex: 1; }
-    .montant-refus { color: #ef4444; font-weight: 700; font-family: monospace; }
-    .date-refus { color: var(--text-secondary); font-size: 14px; }
+    .beneficiaire-name { font-weight: 700; flex: 1; color: #0f172a; font-size: 15px; }
+    .montant-refus { color: #ef4444; font-weight: 700; font-family: monospace; font-size: 16px; }
+    .date-refus { color: #475569; font-size: 14px; font-weight: 500; }
     .refus-details { padding: 16px; background: #f9fafb; border-radius: 8px; }
     .detail-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
     .detail-row:last-child { margin-bottom: 0; }
     .detail-row mat-icon { color: #2563eb; }
+    .detail-row span { color: #1e293b; font-size: 14px; }
+    .detail-row strong { color: #0f172a; }
     
-    .redistribution-section, .action-section { margin-top: 24px; padding-top: 24px; border-top: 2px solid var(--border-color); text-align: center; }
+    /* Redistribution Section - Très visible */
+    .redistribution-section, .action-section { 
+      margin-top: 24px; 
+      padding: 24px; 
+      border-top: 3px solid #8b5cf6; 
+      text-align: center; 
+      background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+      border-radius: 8px;
+    }
+    
+    .redistribution-section button, .action-section button {
+      font-size: 16px !important;
+      font-weight: 700 !important;
+      padding: 12px 24px !important;
+    }
+    
     .redistribution-info { padding: 24px; }
     .info-header { text-align: center; margin-bottom: 32px; }
     .info-header .success-icon { font-size: 64px; width: 64px; height: 64px; color: #10b981; margin-bottom: 16px; }
-    .info-header h3 { margin: 0 0 8px 0; font-size: 24px; }
-    .info-header p { color: var(--text-secondary); }
+    .info-header h3 { margin: 0 0 8px 0; font-size: 24px; color: #0f172a; }
+    .info-header p { color: #475569; font-size: 15px; }
     
     .beneficiaires-list { display: flex; flex-direction: column; gap: 12px; }
     .beneficiaire-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #f9fafb; border-radius: 8px; border-left: 4px solid #10b981; }
     .beneficiaire-info { display: flex; align-items: center; gap: 12px; }
     .beneficiaire-info mat-icon { color: #2563eb; }
-    .beneficiaire-info span { font-weight: 600; }
-    .montant-redistribue { color: #10b981; font-weight: 700; font-family: monospace; }
+    .beneficiaire-info span { font-weight: 700; color: #0f172a; font-size: 15px; }
+    .montant-redistribue { color: #10b981; font-weight: 700; font-family: monospace; font-size: 16px; }
     
-    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+    .empty-state { text-align: center; padding: 60px 20px; color: #475569; }
     .empty-state mat-icon { font-size: 80px; width: 80px; height: 80px; margin-bottom: 20px; opacity: 0.5; }
-    .empty-state h3 { font-size: 24px; margin: 0 0 8px 0; }
-    .empty-state p { margin: 0 0 24px 0; }
+    .empty-state h3 { font-size: 24px; margin: 0 0 8px 0; color: #1e293b; }
+    .empty-state p { margin: 0 0 24px 0; color: #475569; }
     
     .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; gap: 20px; }
-    .tab-label-bold { font-weight: 700; font-size: 15px; }
     
     .details-card { margin-bottom: 24px; animation: slideDown 0.3s ease-out; }
     .details-card.distribue-details { border-left: 4px solid #f59e0b; }
@@ -519,35 +664,35 @@ import { BanqueTontine, Tontine, Transaction, TourRefuse, Member } from '../../m
     .details-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-bottom: 2px solid var(--border-color); background: #f9fafb; }
     .header-title { display: flex; align-items: center; gap: 12px; }
     .header-title mat-icon { color: #2563eb; font-size: 28px; width: 28px; height: 28px; }
-    .header-title h3 { margin: 0; font-size: 18px; font-weight: 600; }
+    .header-title h3 { margin: 0; font-size: 18px; font-weight: 700; color: #0f172a; }
     .details-content { padding: 24px; }
     
     .summary-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-color); }
     .summary-row:last-of-type { border-bottom: none; }
-    .summary-row .label { font-size: 14px; color: var(--text-secondary); }
-    .summary-row .value { font-size: 16px; font-weight: 600; }
+    .summary-row .label { font-size: 15px; color: #475569; font-weight: 500; }
+    .summary-row .value { font-size: 16px; font-weight: 700; color: #0f172a; }
     .summary-row .value.highlight { color: #2563eb; font-size: 18px; }
     .summary-row .value.status-done { color: #10b981; }
     .summary-row .value.status-pending { color: #f59e0b; }
     
     .divider { height: 2px; background: var(--border-color); margin: 24px 0; }
-    h4 { font-size: 16px; font-weight: 600; margin: 0 0 16px 0; }
+    h4 { font-size: 18px; font-weight: 700; margin: 0 0 16px 0; color: #0f172a; }
     
     .tours-list, .refus-items { display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto; }
     .tour-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #f0fdf4; border-radius: 8px; border-left: 4px solid #10b981; }
     .tour-info, .refus-info { display: flex; align-items: center; gap: 12px; flex: 1; }
     .tour-icon { color: #10b981; }
     .tour-details, .refus-details-content { display: flex; flex-direction: column; gap: 4px; }
-    .tour-number { font-weight: 700; font-size: 14px; color: #065f46; }
-    .beneficiaire, .date { font-size: 12px; color: var(--text-secondary); }
+    .tour-number { font-weight: 700; font-size: 15px; color: #065f46; }
+    .beneficiaire, .date { font-size: 13px; color: #475569; }
     .montant-tour { font-weight: 700; font-size: 16px; color: #10b981; font-family: monospace; }
     
     .refus-item-detail { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #fef2f2; border-radius: 8px; border-left: 4px solid #ef4444; }
     .refus-icon { color: #ef4444; }
     .refus-main { display: flex; align-items: center; gap: 12px; }
-    .beneficiaire-refus { font-weight: 700; font-size: 14px; color: #991b1b; }
-    .cycle-info { background: #fecaca; color: #991b1b; padding: 2px 8px; border-radius: 8px; font-size: 11px; }
-    .raison { font-size: 13px; font-style: italic; margin-top: 4px; }
+    .beneficiaire-refus { font-weight: 700; font-size: 15px; color: #991b1b; }
+    .cycle-info { background: #fecaca; color: #991b1b; padding: 2px 8px; border-radius: 8px; font-size: 12px; font-weight: 600; }
+    .raison { font-size: 14px; font-style: italic; margin-top: 4px; color: #475569; }
     .montant-refus-detail { font-weight: 700; font-size: 16px; color: #ef4444; font-family: monospace; }
   `]
 })

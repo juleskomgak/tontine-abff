@@ -36,6 +36,11 @@
       <span>Bénéficiaires</span>
     </button>
     
+    <button mat-button [routerLink]="['/solidarite']">
+      <mat-icon>favorite</mat-icon>
+      <span>Solidarité</span>
+    </button>
+    
     @if (authService.hasRole('admin', 'tresorier')) {
       <button mat-button [routerLink]="['/banque']">
         <mat-icon>account_balance</mat-icon>
