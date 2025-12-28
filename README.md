@@ -1,4 +1,4 @@
-# Application de Gestion de Tontine ABFF 🇦🇫
+# Application de Gestion de Tontine ABFF 🇨🇲
 
 Application web moderne pour gérer les tontines d'une association africaine.
 
