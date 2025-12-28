@@ -1,0 +1,151 @@
+<div class="page-container">
+  <div class="page-header">
+    <h1>{{ isEditing() ? '✏️ Modifier la Tontine' : '🏦 Nouvelle Tontine' }}</h1>
+    <button mat-button (click)="goBack()">
+      <mat-icon>arrow_back</mat-icon>
+      Retour
+    </button>
+  </div>
+
+  <mat-card class="form-card">
+    <mat-card-content>
+      <form [formGroup]="tontineForm" (ngSubmit)="onSubmit()">
+        <h3 class="section-title">📋 Informations Générales</h3>
+        
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Nom de la Tontine</mat-label>
+          <input matInput formControlName="nom" placeholder="Ex: Tontine Mensuelle 2025">
+          <mat-icon matPrefix>label</mat-icon>
+          @if (tontineForm.get('nom')?.hasError('required') && tontineForm.get('nom')?.touched) {
+            <mat-error>Nom requis</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Description</mat-label>
+          <textarea matInput formControlName="description" rows="3" 
+                    placeholder="Décrivez l'objectif et les règles de cette tontine"></textarea>
+          <mat-icon matPrefix>description</mat-icon>
+        </mat-form-field>
+
+        <h3 class="section-title">💰 Paramètres Financiers</h3>
+
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Montant de Cotisation (FCFA)</mat-label>
+            <input matInput type="number" formControlName="montantCotisation" placeholder="50000">
+            <mat-icon matPrefix>payments</mat-icon>
+            @if (tontineForm.get('montantCotisation')?.hasError('required') && tontineForm.get('montantCotisation')?.touched) {
+              <mat-error>Montant requis</mat-error>
+            }
+            @if (tontineForm.get('montantCotisation')?.hasError('min')) {
+              <mat-error>Montant minimum: 1000 FCFA</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Fréquence</mat-label>
+            <mat-select formControlName="frequence">
+              <mat-option value="hebdomadaire">Hebdomadaire</mat-option>
+              <mat-option value="mensuel">Mensuelle</mat-option>
+              <mat-option value="trimestriel">Trimestrielle</mat-option>
+            </mat-select>
+            <mat-icon matPrefix>schedule</mat-icon>
+            @if (tontineForm.get('frequence')?.hasError('required') && tontineForm.get('frequence')?.touched) {
+              <mat-error>Fréquence requise</mat-error>
+            }
+          </mat-form-field>
+        </div>
+
+        <h3 class="section-title">📅 Dates</h3>
+
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Date de Début</mat-label>
+            <input matInput [matDatepicker]="pickerDebut" formControlName="dateDebut">
+            <mat-icon matPrefix>event</mat-icon>
+            <mat-datepicker-toggle matSuffix [for]="pickerDebut"></mat-datepicker-toggle>
+            <mat-datepicker #pickerDebut></mat-datepicker>
+            @if (tontineForm.get('dateDebut')?.hasError('required') && tontineForm.get('dateDebut')?.touched) {
+              <mat-error>Date de début requise</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="half-width">
+            <mat-label>Date de Fin</mat-label>
+            <input matInput [matDatepicker]="pickerFin" formControlName="dateFin">
+            <mat-icon matPrefix>event</mat-icon>
+            <mat-datepicker-toggle matSuffix [for]="pickerFin"></mat-datepicker-toggle>
+            <mat-datepicker #pickerFin></mat-datepicker>
+            @if (tontineForm.get('dateFin')?.hasError('required') && tontineForm.get('dateFin')?.touched) {
+              <mat-error>Date de fin requise</mat-error>
+            }
+          </mat-form-field>
+        </div>
+
+        <h3 class="section-title">👥 Sélection des Membres</h3>
+
+        <div class="members-selection">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Rechercher un membre</mat-label>
+            <input matInput [(ngModel)]="searchText" [ngModelOptions]="{standalone: true}" 
+                   placeholder="Nom, prénom ou email">
+            <mat-icon matPrefix>search</mat-icon>
+          </mat-form-field>
+
+          <div class="members-list">
+            @if (availableMembers().length === 0) {
+              <div class="empty-state">
+                <mat-icon>people_outline</mat-icon>
+                <p>Aucun membre disponible</p>
+              </div>
+            } @else {
+              @for (member of filteredMembers(); track member._id) {
+                <div class="member-item" [class.selected]="isMemberSelected(member._id)">
+                  <mat-checkbox 
+                    [checked]="isMemberSelected(member._id)"
+                    (change)="toggleMember(member)">
+                    <div class="member-info">
+                      <strong>{{ member.nom }} {{ member.prenom }}</strong>
+                      <span class="member-details">{{ member.email }} • {{ member.telephone }}</span>
+                    </div>
+                  </mat-checkbox>
+                </div>
+              }
+            }
+          </div>
+
+          <div class="selected-summary">
+            <mat-icon>group</mat-icon>
+            <strong>{{ selectedMembers().length }} membre(s) sélectionné(s)</strong>
+          </div>
+        </div>
+
+        <h3 class="section-title">⚙️ Statut</h3>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Statut de la Tontine</mat-label>
+          <mat-select formControlName="statut">
+            <mat-option value="planifie">Planifiée</mat-option>
+            <mat-option value="actif">Active</mat-option>
+            <mat-option value="termine">Terminée</mat-option>
+            <mat-option value="suspendu">Suspendue</mat-option>
+          </mat-select>
+          <mat-icon matPrefix>info</mat-icon>
+        </mat-form-field>
+
+        <div class="form-actions">
+          <button mat-button type="button" (click)="goBack()">
+            <mat-icon>close</mat-icon>
+            Annuler
+          </button>
+          <button mat-raised-button color="primary" type="submit" 
+                  [disabled]="tontineForm.invalid || selectedMembers().length === 0 || loading()">
+            <mat-icon>{{ isEditing() ? 'save' : 'add' }}</mat-icon>
+            {{ isEditing() ? 'Enregistrer' : 'Créer la Tontine' }}
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>

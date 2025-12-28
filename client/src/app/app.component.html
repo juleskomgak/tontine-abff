@@ -1,0 +1,77 @@
+@if (authService.isAuthenticated()) {
+  <mat-toolbar color="primary">
+    <button mat-icon-button>
+      <mat-icon>menu</mat-icon>
+    </button>
+    <span class="logo">🎯 {{ title }}</span>
+    <span class="spacer"></span>
+    
+    <button mat-button [routerLink]="['/dashboard']">
+      <mat-icon>dashboard</mat-icon>
+      <span>Tableau de bord</span>
+    </button>
+    
+    <button mat-button [routerLink]="['/tontines']">
+      <mat-icon>account_balance</mat-icon>
+      <span>Tontines</span>
+    </button>
+    
+    <button mat-button [routerLink]="['/members']">
+      <mat-icon>people</mat-icon>
+      <span>Membres</span>
+    </button>
+    
+    <button mat-button [routerLink]="['/contributions']">
+      <mat-icon>payments</mat-icon>
+      <span>Cotisations</span>
+    </button>
+    
+    <button mat-button [routerLink]="['/tours']">
+      <mat-icon>casino</mat-icon>
+      <span>Tours</span>
+    </button>
+    
+    <button mat-button [routerLink]="['/beneficiaires']">
+      <mat-icon>account_balance_wallet</mat-icon>
+      <span>Bénéficiaires</span>
+    </button>
+    
+    @if (authService.hasRole('admin', 'tresorier')) {
+      <button mat-button [routerLink]="['/banque']">
+        <mat-icon>account_balance</mat-icon>
+        <span>Banque</span>
+      </button>
+    }
+    
+    @if (authService.hasRole('admin')) {
+      <button mat-button [routerLink]="['/admin/users']">
+        <mat-icon>admin_panel_settings</mat-icon>
+        <span>Admin</span>
+      </button>
+    }
+    
+    <button mat-button [matMenuTriggerFor]="userMenu">
+      <mat-icon>account_circle</mat-icon>
+      <span>{{ authService.getCurrentUser()?.prenom }}</span>
+      <mat-icon>arrow_drop_down</mat-icon>
+    </button>
+    
+    <mat-menu #userMenu="matMenu">
+      <div class="user-info">
+        <p class="user-name">{{ authService.getCurrentUser()?.nom }} {{ authService.getCurrentUser()?.prenom }}</p>
+        <p class="user-role">{{ authService.getCurrentUser()?.role }}</p>
+      </div>
+      <mat-divider></mat-divider>
+      <button mat-menu-item (click)="logout()">
+        <mat-icon>logout</mat-icon>
+        <span>Déconnexion</span>
+      </button>
+    </mat-menu>
+  </mat-toolbar>
+
+  <div class="app-content">
+    <router-outlet />
+  </div>
+} @else {
+  <router-outlet />
+}

@@ -1,0 +1,20 @@
+# Render Blueprint - Configuration de déploiement
+# https://render.com/docs/blueprint-spec
+
+services:
+  # Backend API
+  - type: web
+    name: tontine-api
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRE
+        value: 30d
+      - key: MONGODB_URI
+        sync: false  # À configurer manuellement avec MongoDB Atlas
