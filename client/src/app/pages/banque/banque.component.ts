@@ -437,641 +437,118 @@ import { BanqueTontine, Tontine, Transaction, TourRefuse, Member } from '../../m
     </div>
   `,
   styles: [`
-    .page-container {
-      padding: 32px;
-      max-width: 1400px;
-      margin: 0 auto;
-    }
-
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 32px;
-    }
-
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .page-icon {
-      font-size: 48px;
-      width: 48px;
-      height: 48px;
-      color: #2563eb;
-    }
-
-    h1 {
-      font-size: 32px;
-      font-weight: 700;
-      margin: 0;
-      color: var(--text-primary);
-    }
-
-    .subtitle {
-      font-size: 16px;
-      color: var(--text-secondary);
-      margin: 4px 0 0 0;
-    }
-
-    .filter-card {
-      margin-bottom: 24px;
-      background: #ffffff;
-      border-left: 4px solid #667eea;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-
-      .filters-row {
-        display: flex;
-        gap: 20px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-
-      .filter-field {
-        flex: 1;
-        min-width: 250px;
-      }
-
-      ::ng-deep {
-        .mat-mdc-form-field {
-          width: 100%;
-        }
-
-        .mat-mdc-floating-label {
-          color: #667eea !important;
-          font-weight: 600;
-        }
-
-        .mat-mdc-select-value {
-          color: #000000 !important;
-          font-weight: 500;
-        }
-
-        .mat-mdc-select-arrow {
-          color: #667eea !important;
-        }
-
-        .mdc-notched-outline__leading,
-        .mdc-notched-outline__notch,
-        .mdc-notched-outline__trailing {
-          border-color: #667eea !important;
-        }
-
-        .mat-mdc-form-field:hover .mdc-notched-outline {
-          .mdc-notched-outline__leading,
-          .mdc-notched-outline__notch,
-          .mdc-notched-outline__trailing {
-            border-color: #764ba2 !important;
-          }
-        }
-
-        .mat-mdc-form-field.mat-focused .mdc-notched-outline {
-          .mdc-notched-outline__leading,
-          .mdc-notched-outline__notch,
-          .mdc-notched-outline__trailing {
-            border-color: #667eea !important;
-            border-width: 2px !important;
-          }
-        }
-      }
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
-      margin-bottom: 32px;
-    }
-
-    .stat-card {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 24px !important;
-      border-left: 4px solid;
-
-      &.solde { border-left-color: #2563eb; }
-      &.cotisations { border-left-color: #10b981; }
-      &.refus { border-left-color: #ef4444; }
-      &.total { border-left-color: #8b5cf6; }
-      &.distribue { border-left-color: #f59e0b; }
-      &.tours-refus { border-left-color: #ec4899; }
-    }
-
-    .stat-icon {
-      font-size: 40px;
-      width: 40px;
-      height: 40px;
-      color: inherit;
-    }
-
-    .stat-content h3 {
-      margin: 0;
-      font-size: 24px;
-      font-weight: 700;
-    }
-
-    .stat-content p {
-      margin: 4px 0 0 0;
-      font-size: 14px;
-      color: var(--text-secondary);
-    }
-
-    .tab-content {
-      margin-top: 16px;
-      min-height: 400px;
-    }
-
-    .table-container {
-      overflow-x: auto;
-    }
-
-    .transactions-table {
-      width: 100%;
-    }
-
-    .type-chip {
-      display: inline-block;
-      padding: 6px 12px;
-      border-radius: 16px;
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-
-      &.type-cotisation { background: #10b981; color: white; }
-      &.type-paiement_tour { background: #f59e0b; color: white; }
-      &.type-refus_tour { background: #ef4444; color: white; }
-      &.type-redistribution { background: #8b5cf6; color: white; }
-      &.type-ajustement { background: #6b7280; color: white; }
-    }
-
-    .montant-positif {
-      color: #10b981;
-      font-weight: 600;
-    }
-
-    .montant-negatif {
-      color: #ef4444;
-      font-weight: 600;
-    }
-
-    .refus-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .refus-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex: 1;
-    }
-
-    .beneficiaire-name {
-      font-weight: 600;
-      flex: 1;
-    }
-
-    .montant-refus {
-      color: #ef4444;
-      font-weight: 700;
-      font-family: 'Courier New', monospace;
-    }
-
-    .cycle-badge {
-      background: #e0e7ff;
-      color: #3730a3;
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-
-    .date-refus {
-      color: var(--text-secondary);
-      font-size: 14px;
-    }
-
-    .refus-details {
-      padding: 16px;
-      background: #f9fafb;
-      border-radius: 8px;
-    }
-
-    .detail-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 12px;
-
-      &:last-child {
-        margin-bottom: 0;
-      }
-
-      mat-icon {
-        color: #2563eb;
-      }
-    }
-
-    .redistribution-section {
-      margin-top: 24px;
-      padding-top: 24px;
-      border-top: 2px solid var(--border-color);
-      text-align: center;
-    }
-
-    .redistribution-info {
-      padding: 24px;
-    }
-
-    .info-header {
-      text-align: center;
-      margin-bottom: 32px;
-
-      .success-icon {
-        font-size: 64px;
-        width: 64px;
-        height: 64px;
-        color: #10b981;
-        margin-bottom: 16px;
-      }
-
-      h3 {
-        margin: 0 0 8px 0;
-        font-size: 24px;
-      }
-
-      p {
-        color: var(--text-secondary);
-      }
-    }
-
-    .beneficiaires-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .beneficiaire-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 16px;
-      background: #f9fafb;
-      border-radius: 8px;
-      border-left: 4px solid #10b981;
-    }
-
-    .beneficiaire-info {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-
-      mat-icon {
-        color: #2563eb;
-      }
-
-      span {
-        font-weight: 600;
-      }
-    }
-
-    .montant-redistribue {
-      color: #10b981;
-      font-weight: 700;
-      font-family: 'Courier New', monospace;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 60px 20px;
-      color: var(--text-secondary);
-
-      mat-icon {
-        font-size: 80px;
-        width: 80px;
-        height: 80px;
-        margin-bottom: 20px;
-        opacity: 0.5;
-      }
-
-      h3 {
-        font-size: 24px;
-        margin: 0 0 8px 0;
-      }
-
-      p {
-        margin: 0 0 24px 0;
-      }
-    }
-
-    .loading-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 60px 20px;
-      gap: 20px;
-    }
-
-    .tab-label-bold {
-      font-weight: 700;
-      color: #000000;
-      font-size: 15px;
-    }
-
-    .cycle-badge {
-      display: inline-block;
-      background: #e0e7ff;
-      color: #3730a3;
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-
-    .stat-card.clickable {
-      cursor: pointer;
-      position: relative;
-      transition: transform 0.2s, box-shadow 0.2s;
-
-      &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      }
-
-      .expand-button {
-        position: absolute;
-        top: 8px;
-        right: 8px;
-      }
-    }
-
-    .details-card {
-      margin-bottom: 24px;
-      animation: slideDown 0.3s ease-out;
-
-      &.distribue-details {
-        border-left: 4px solid #f59e0b;
-      }
-
-      &.refus-details {
-        border-left: 4px solid #ef4444;
-      }
-    }
-
-    @keyframes slideDown {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .details-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 16px 24px;
-      border-bottom: 2px solid var(--border-color);
-      background: #f9fafb;
-
-      .header-title {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-
-        mat-icon {
-          color: #2563eb;
-          font-size: 28px;
-          width: 28px;
-          height: 28px;
-        }
-
-        h3 {
-          margin: 0;
-          font-size: 18px;
-          font-weight: 600;
-        }
-      }
-    }
-
-    .details-content {
-      padding: 24px;
-    }
-
-    .summary-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 0;
-      border-bottom: 1px solid var(--border-color);
-
-      &:last-of-type {
-        border-bottom: none;
-      }
-
-      .label {
-        font-size: 14px;
-        color: var(--text-secondary);
-      }
-
-      .value {
-        font-size: 16px;
-        font-weight: 600;
-
-        &.highlight {
-          color: #2563eb;
-          font-size: 18px;
-        }
-
-        &.status-done {
-          color: #10b981;
-          font-weight: 700;
-        }
-
-        &.status-pending {
-          color: #f59e0b;
-          font-weight: 700;
-        }
-      }
-    }
-
-    .divider {
-      height: 2px;
-      background: var(--border-color);
-      margin: 24px 0;
-    }
-
-    h4 {
-      font-size: 16px;
-      font-weight: 600;
-      margin: 0 0 16px 0;
-      color: var(--text-primary);
-    }
-
-    .tours-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      max-height: 400px;
-      overflow-y: auto;
-    }
-
-    .tour-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 16px;
-      background: #f0fdf4;
-      border-radius: 8px;
-      border-left: 4px solid #10b981;
-      transition: background 0.2s;
-
-      &:hover {
-        background: #dcfce7;
-      }
-    }
-
-    .tour-info {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex: 1;
-    }
-
-    .tour-icon {
-      color: #10b981;
-      font-size: 24px;
-      width: 24px;
-      height: 24px;
-    }
-
-    .tour-details {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-
-      .tour-number {
-        font-weight: 700;
-        font-size: 14px;
-        color: #065f46;
-      }
-
-      .beneficiaire {
-        font-size: 14px;
-        color: var(--text-primary);
-      }
-
-      .date {
-        font-size: 12px;
-        color: var(--text-secondary);
-      }
-    }
-
-    .montant-tour {
-      font-weight: 700;
-      font-size: 16px;
-      color: #10b981;
-      font-family: 'Courier New', monospace;
-    }
-
-    .refus-items {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      max-height: 400px;
-      overflow-y: auto;
-    }
-
-    .refus-item-detail {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 16px;
-      background: #fef2f2;
-      border-radius: 8px;
-      border-left: 4px solid #ef4444;
-      transition: background 0.2s;
-
-      &:hover {
-        background: #fee2e2;
-      }
-    }
-
-    .refus-info {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      flex: 1;
-    }
-
-    .refus-icon {
-      color: #ef4444;
-      font-size: 24px;
-      width: 24px;
-      height: 24px;
-      margin-top: 4px;
-    }
-
-    .refus-details-content {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-
-      .refus-main {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-
-        .beneficiaire-refus {
-          font-weight: 700;
-          font-size: 14px;
-          color: #991b1b;
-        }
-
-        .cycle-info {
-          background: #fecaca;
-          color: #991b1b;
-          padding: 2px 8px;
-          border-radius: 8px;
-          font-size: 11px;
-          font-weight: 600;
-        }
-      }
-
-      .date-refus {
-        font-size: 12px;
-        color: var(--text-secondary);
-      }
-
-      .raison {
-        font-size: 13px;
-        color: var(--text-primary);
-        font-style: italic;
-        margin-top: 4px;
-      }
-    }
-
-    .montant-refus-detail {
-      font-weight: 700;
-      font-size: 16px;
-      color: #ef4444;
-      font-family: 'Courier New', monospace;
-    }
-
-    .action-section {
-      margin-top: 24px;
-      padding-top: 24px;
-      border-top: 2px solid var(--border-color);
-      text-align: center;
-    }
+    .page-container { padding: 32px; max-width: 1400px; margin: 0 auto; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .page-icon { font-size: 48px; width: 48px; height: 48px; color: #2563eb; }
+    h1 { font-size: 32px; font-weight: 700; margin: 0; }
+    .subtitle { font-size: 16px; color: var(--text-secondary); margin: 4px 0 0 0; }
+    
+    .filter-card { margin-bottom: 24px; border-left: 4px solid #667eea; }
+    .filters-row { display: flex; gap: 20px; flex-wrap: wrap; }
+    .filter-field { flex: 1; min-width: 250px; }
+    
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 32px; }
+    .stat-card { display: flex; align-items: center; gap: 16px; padding: 24px !important; border-left: 4px solid; }
+    .stat-card.solde { border-left-color: #2563eb; }
+    .stat-card.cotisations { border-left-color: #10b981; }
+    .stat-card.refus { border-left-color: #ef4444; }
+    .stat-card.total { border-left-color: #8b5cf6; }
+    .stat-card.distribue { border-left-color: #f59e0b; }
+    .stat-card.tours-refus { border-left-color: #ec4899; }
+    .stat-card.clickable { cursor: pointer; position: relative; transition: transform 0.2s; }
+    .stat-card.clickable:hover { transform: translateY(-2px); }
+    .expand-button { position: absolute; top: 8px; right: 8px; }
+    .stat-icon { font-size: 40px; width: 40px; height: 40px; }
+    .stat-content h3 { margin: 0; font-size: 24px; font-weight: 700; }
+    .stat-content p { margin: 4px 0 0 0; font-size: 14px; color: var(--text-secondary); }
+    
+    .tab-content { margin-top: 16px; min-height: 400px; }
+    .table-container { overflow-x: auto; }
+    .transactions-table { width: 100%; }
+    
+    .type-chip { display: inline-block; padding: 6px 12px; border-radius: 16px; font-size: 12px; font-weight: 600; text-transform: uppercase; color: white; }
+    .type-cotisation { background: #10b981; }
+    .type-paiement_tour { background: #f59e0b; }
+    .type-refus_tour { background: #ef4444; }
+    .type-redistribution { background: #8b5cf6; }
+    .type-ajustement { background: #6b7280; }
+    
+    .montant-positif { color: #10b981; font-weight: 600; }
+    .montant-negatif { color: #ef4444; font-weight: 600; }
+    
+    .cycle-badge { background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    
+    .refus-list { display: flex; flex-direction: column; gap: 12px; }
+    .refus-header { display: flex; align-items: center; gap: 12px; flex: 1; }
+    .beneficiaire-name { font-weight: 600; flex: 1; }
+    .montant-refus { color: #ef4444; font-weight: 700; font-family: monospace; }
+    .date-refus { color: var(--text-secondary); font-size: 14px; }
+    .refus-details { padding: 16px; background: #f9fafb; border-radius: 8px; }
+    .detail-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .detail-row:last-child { margin-bottom: 0; }
+    .detail-row mat-icon { color: #2563eb; }
+    
+    .redistribution-section, .action-section { margin-top: 24px; padding-top: 24px; border-top: 2px solid var(--border-color); text-align: center; }
+    .redistribution-info { padding: 24px; }
+    .info-header { text-align: center; margin-bottom: 32px; }
+    .info-header .success-icon { font-size: 64px; width: 64px; height: 64px; color: #10b981; margin-bottom: 16px; }
+    .info-header h3 { margin: 0 0 8px 0; font-size: 24px; }
+    .info-header p { color: var(--text-secondary); }
+    
+    .beneficiaires-list { display: flex; flex-direction: column; gap: 12px; }
+    .beneficiaire-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #f9fafb; border-radius: 8px; border-left: 4px solid #10b981; }
+    .beneficiaire-info { display: flex; align-items: center; gap: 12px; }
+    .beneficiaire-info mat-icon { color: #2563eb; }
+    .beneficiaire-info span { font-weight: 600; }
+    .montant-redistribue { color: #10b981; font-weight: 700; font-family: monospace; }
+    
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+    .empty-state mat-icon { font-size: 80px; width: 80px; height: 80px; margin-bottom: 20px; opacity: 0.5; }
+    .empty-state h3 { font-size: 24px; margin: 0 0 8px 0; }
+    .empty-state p { margin: 0 0 24px 0; }
+    
+    .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; gap: 20px; }
+    .tab-label-bold { font-weight: 700; font-size: 15px; }
+    
+    .details-card { margin-bottom: 24px; animation: slideDown 0.3s ease-out; }
+    .details-card.distribue-details { border-left: 4px solid #f59e0b; }
+    .details-card.refus-details { border-left: 4px solid #ef4444; }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .details-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-bottom: 2px solid var(--border-color); background: #f9fafb; }
+    .header-title { display: flex; align-items: center; gap: 12px; }
+    .header-title mat-icon { color: #2563eb; font-size: 28px; width: 28px; height: 28px; }
+    .header-title h3 { margin: 0; font-size: 18px; font-weight: 600; }
+    .details-content { padding: 24px; }
+    
+    .summary-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border-color); }
+    .summary-row:last-of-type { border-bottom: none; }
+    .summary-row .label { font-size: 14px; color: var(--text-secondary); }
+    .summary-row .value { font-size: 16px; font-weight: 600; }
+    .summary-row .value.highlight { color: #2563eb; font-size: 18px; }
+    .summary-row .value.status-done { color: #10b981; }
+    .summary-row .value.status-pending { color: #f59e0b; }
+    
+    .divider { height: 2px; background: var(--border-color); margin: 24px 0; }
+    h4 { font-size: 16px; font-weight: 600; margin: 0 0 16px 0; }
+    
+    .tours-list, .refus-items { display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto; }
+    .tour-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #f0fdf4; border-radius: 8px; border-left: 4px solid #10b981; }
+    .tour-info, .refus-info { display: flex; align-items: center; gap: 12px; flex: 1; }
+    .tour-icon { color: #10b981; }
+    .tour-details, .refus-details-content { display: flex; flex-direction: column; gap: 4px; }
+    .tour-number { font-weight: 700; font-size: 14px; color: #065f46; }
+    .beneficiaire, .date { font-size: 12px; color: var(--text-secondary); }
+    .montant-tour { font-weight: 700; font-size: 16px; color: #10b981; font-family: monospace; }
+    
+    .refus-item-detail { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: #fef2f2; border-radius: 8px; border-left: 4px solid #ef4444; }
+    .refus-icon { color: #ef4444; }
+    .refus-main { display: flex; align-items: center; gap: 12px; }
+    .beneficiaire-refus { font-weight: 700; font-size: 14px; color: #991b1b; }
+    .cycle-info { background: #fecaca; color: #991b1b; padding: 2px 8px; border-radius: 8px; font-size: 11px; }
+    .raison { font-size: 13px; font-style: italic; margin-top: 4px; }
+    .montant-refus-detail { font-weight: 700; font-size: 16px; color: #ef4444; font-family: monospace; }
   `]
 })
 export class BanqueComponent implements OnInit {
