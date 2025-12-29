@@ -8,6 +8,8 @@ export interface UserStats {
   total: number;
   actifs: number;
   inactifs: number;
+  valides: number;
+  enAttente: number;
   parRole: {
     admin: number;
     tresorier: number;
@@ -21,9 +23,14 @@ export interface UserStats {
 export class UserService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiUrl}/users`;
+  private authUrl = `${environment.apiUrl}/auth`;
 
-  getUsers(): Observable<ApiResponse<User[]>> {
-    return this.http.get<ApiResponse<User[]>>(this.apiUrl);
+  getUsers(validated?: boolean): Observable<ApiResponse<User[]>> {
+    const params: any = {};
+    if (validated !== undefined) {
+      params.validated = validated.toString();
+    }
+    return this.http.get<ApiResponse<User[]>>(`${this.authUrl}/users`, { params });
   }
 
   getUser(id: string): Observable<ApiResponse<User>> {
@@ -43,10 +50,23 @@ export class UserService {
   }
 
   deleteUser(id: string): Observable<ApiResponse<void>> {
-    return this.http.delete<ApiResponse<void>>(`${this.apiUrl}/${id}`);
+    return this.http.delete<ApiResponse<void>>(`${this.authUrl}/users/${id}`);
   }
 
   getStats(): Observable<ApiResponse<UserStats>> {
     return this.http.get<ApiResponse<UserStats>>(`${this.apiUrl}/stats/summary`);
+  }
+
+  // Nouvelles méthodes pour la validation des comptes
+  validateUser(id: string): Observable<ApiResponse<User>> {
+    return this.http.put<ApiResponse<User>>(`${this.authUrl}/users/${id}/validate`, {});
+  }
+
+  invalidateUser(id: string): Observable<ApiResponse<User>> {
+    return this.http.put<ApiResponse<User>>(`${this.authUrl}/users/${id}/invalidate`, {});
+  }
+
+  changeUserRole(id: string, role: string): Observable<ApiResponse<User>> {
+    return this.http.put<ApiResponse<User>>(`${this.authUrl}/users/${id}/role`, { role });
   }
 }

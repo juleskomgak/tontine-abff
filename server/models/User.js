@@ -38,6 +38,17 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  isValidated: {
+    type: Boolean,
+    default: false
+  },
+  validatedAt: {
+    type: Date
+  },
+  validatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   createdAt: {
     type: Date,
     default: Date.now

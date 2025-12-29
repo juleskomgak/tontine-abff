@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -10,11 +10,14 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { UserService, UserStats } from '../../services/user.service';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatBadgeModule } from '@angular/material/badge';
+import { MatMenuModule } from '@angular/material/menu';
+import { UserService } from '../../services/user.service';
 import { AuthService } from '../../services/auth.service';
 import { User } from '../../models';
 
@@ -36,7 +39,10 @@ import { User } from '../../models';
     MatDialogModule,
     MatSnackBarModule,
     MatTooltipModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatTabsModule,
+    MatBadgeModule,
+    MatMenuModule
   ],
   template: `
     <div class="page-container">
@@ -45,7 +51,7 @@ import { User } from '../../models';
           <mat-icon class="page-icon">admin_panel_settings</mat-icon>
           <div>
             <h1>👥 Gestion des Utilisateurs</h1>
-            <p class="subtitle">Administration des comptes et des rôles</p>
+            <p class="subtitle">Administration des comptes et validation</p>
           </div>
         </div>
         
@@ -60,23 +66,31 @@ import { User } from '../../models';
         <mat-card class="stat-card">
           <mat-icon class="stat-icon primary">people</mat-icon>
           <div class="stat-content">
-            <h3>{{ stats()?.total || 0 }}</h3>
+            <h3>{{ allUsers().length }}</h3>
             <p>Total utilisateurs</p>
+          </div>
+        </mat-card>
+
+        <mat-card class="stat-card warning" (click)="selectedTab = 1">
+          <mat-icon class="stat-icon warning">hourglass_empty</mat-icon>
+          <div class="stat-content">
+            <h3>{{ pendingUsers().length }}</h3>
+            <p>En attente de validation</p>
           </div>
         </mat-card>
 
         <mat-card class="stat-card">
           <mat-icon class="stat-icon success">verified_user</mat-icon>
           <div class="stat-content">
-            <h3>{{ stats()?.actifs || 0 }}</h3>
-            <p>Actifs</p>
+            <h3>{{ validatedUsers().length }}</h3>
+            <p>Comptes validés</p>
           </div>
         </mat-card>
 
         <mat-card class="stat-card">
           <mat-icon class="stat-icon admin">security</mat-icon>
           <div class="stat-content">
-            <h3>{{ stats()?.parRole?.admin || 0 }}</h3>
+            <h3>{{ countByRole('admin') }}</h3>
             <p>Administrateurs</p>
           </div>
         </mat-card>
@@ -84,16 +98,8 @@ import { User } from '../../models';
         <mat-card class="stat-card">
           <mat-icon class="stat-icon tresorier">account_balance_wallet</mat-icon>
           <div class="stat-content">
-            <h3>{{ stats()?.parRole?.tresorier || 0 }}</h3>
+            <h3>{{ countByRole('tresorier') }}</h3>
             <p>Trésoriers</p>
-          </div>
-        </mat-card>
-
-        <mat-card class="stat-card">
-          <mat-icon class="stat-icon membre">person</mat-icon>
-          <div class="stat-content">
-            <h3>{{ stats()?.parRole?.membre || 0 }}</h3>
-            <p>Membres</p>
           </div>
         </mat-card>
       </div>
@@ -191,100 +197,298 @@ import { User } from '../../models';
         </mat-card>
       }
 
-      <!-- Liste des utilisateurs -->
+      <!-- Onglets pour la liste des utilisateurs -->
       <mat-card class="table-card">
-        @if (loadingList()) {
-          <div class="loading-container">
-            <mat-progress-spinner mode="indeterminate" diameter="50"></mat-progress-spinner>
-            <p>Chargement des utilisateurs...</p>
-          </div>
-        } @else {
-          <div class="table-container">
-            <table mat-table [dataSource]="users()" class="users-table">
-              <!-- Nom Column -->
-              <ng-container matColumnDef="nom">
-                <th mat-header-cell *matHeaderCellDef>Utilisateur</th>
-                <td mat-cell *matCellDef="let user">
-                  <div class="user-info">
-                    <div class="user-avatar" [ngClass]="'role-' + user.role">
-                      {{ getInitials(user) }}
+        <mat-tab-group [(selectedIndex)]="selectedTab" animationDuration="200ms">
+          <!-- Onglet: Tous les utilisateurs -->
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <mat-icon>people</mat-icon>
+              <span class="tab-label">Tous les utilisateurs</span>
+              <span class="tab-badge">{{ allUsers().length }}</span>
+            </ng-template>
+            
+            @if (loadingList()) {
+              <div class="loading-container">
+                <mat-progress-spinner mode="indeterminate" diameter="50"></mat-progress-spinner>
+                <p>Chargement des utilisateurs...</p>
+              </div>
+            } @else {
+              <div class="table-container">
+                <table mat-table [dataSource]="allUsers()" class="users-table">
+                  <ng-container matColumnDef="nom">
+                    <th mat-header-cell *matHeaderCellDef>Utilisateur</th>
+                    <td mat-cell *matCellDef="let user">
+                      <div class="user-info">
+                        <div class="user-avatar" [ngClass]="'role-' + user.role">
+                          {{ getInitials(user) }}
+                        </div>
+                        <div>
+                          <div class="user-name">{{ user.nom }} {{ user.prenom }}</div>
+                          <div class="user-email">{{ user.email }}</div>
+                        </div>
+                      </div>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="telephone">
+                    <th mat-header-cell *matHeaderCellDef>Téléphone</th>
+                    <td mat-cell *matCellDef="let user">{{ user.telephone || '-' }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="role">
+                    <th mat-header-cell *matHeaderCellDef>Rôle</th>
+                    <td mat-cell *matCellDef="let user">
+                      <span class="role-chip" [ngClass]="'role-' + user.role">
+                        {{ getRoleLabel(user.role) }}
+                      </span>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="validation">
+                    <th mat-header-cell *matHeaderCellDef>Validation</th>
+                    <td mat-cell *matCellDef="let user">
+                      @if (user.isValidated) {
+                        <span class="validation-chip validated">
+                          <mat-icon>verified</mat-icon> Validé
+                        </span>
+                      } @else {
+                        <span class="validation-chip pending">
+                          <mat-icon>hourglass_empty</mat-icon> En attente
+                        </span>
+                      }
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="statut">
+                    <th mat-header-cell *matHeaderCellDef>Statut</th>
+                    <td mat-cell *matCellDef="let user">
+                      <span class="status-chip" [ngClass]="user.isActive ? 'active' : 'inactive'">
+                        {{ user.isActive ? 'Actif' : 'Inactif' }}
+                      </span>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="createdAt">
+                    <th mat-header-cell *matHeaderCellDef>Inscrit le</th>
+                    <td mat-cell *matCellDef="let user">{{ formatDate(user.createdAt) }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="actions">
+                    <th mat-header-cell *matHeaderCellDef>Actions</th>
+                    <td mat-cell *matCellDef="let user">
+                      <div class="action-buttons">
+                        @if (!user.isValidated && user._id !== currentUserId()) {
+                          <button mat-icon-button color="primary" 
+                                  (click)="validateUser(user)"
+                                  matTooltip="Valider le compte">
+                            <mat-icon>check_circle</mat-icon>
+                          </button>
+                        }
+                        @if (user.isValidated && user._id !== currentUserId()) {
+                          <button mat-icon-button color="warn" 
+                                  (click)="invalidateUser(user)"
+                                  matTooltip="Révoquer la validation">
+                            <mat-icon>cancel</mat-icon>
+                          </button>
+                        }
+                        <button mat-icon-button color="primary" 
+                                (click)="editUser(user)"
+                                matTooltip="Modifier">
+                          <mat-icon>edit</mat-icon>
+                        </button>
+                        <button mat-icon-button [matMenuTriggerFor]="roleMenu" 
+                                matTooltip="Changer le rôle"
+                                [disabled]="user._id === currentUserId()">
+                          <mat-icon>swap_vert</mat-icon>
+                        </button>
+                        <mat-menu #roleMenu="matMenu">
+                          <button mat-menu-item (click)="changeRole(user, 'admin')">
+                            <mat-icon>security</mat-icon> Administrateur
+                          </button>
+                          <button mat-menu-item (click)="changeRole(user, 'tresorier')">
+                            <mat-icon>account_balance_wallet</mat-icon> Trésorier
+                          </button>
+                          <button mat-menu-item (click)="changeRole(user, 'membre')">
+                            <mat-icon>person</mat-icon> Membre
+                          </button>
+                        </mat-menu>
+                        @if (user._id !== currentUserId()) {
+                          <button mat-icon-button color="warn" 
+                                  (click)="deleteUser(user)"
+                                  matTooltip="Supprimer">
+                            <mat-icon>delete</mat-icon>
+                          </button>
+                        }
+                      </div>
+                    </td>
+                  </ng-container>
+
+                  <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: displayedColumns;" 
+                      [class.current-user]="row._id === currentUserId()"
+                      [class.pending-user]="!row.isValidated"></tr>
+                </table>
+              </div>
+            }
+          </mat-tab>
+
+          <!-- Onglet: En attente de validation -->
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <mat-icon>hourglass_empty</mat-icon>
+              <span class="tab-label">En attente de validation</span>
+              @if (pendingUsers().length > 0) {
+                <span class="tab-badge warning">{{ pendingUsers().length }}</span>
+              }
+            </ng-template>
+            
+            @if (pendingUsers().length === 0) {
+              <div class="empty-state">
+                <mat-icon>verified_user</mat-icon>
+                <h3>Aucun compte en attente</h3>
+                <p>Tous les comptes ont été validés</p>
+              </div>
+            } @else {
+              <div class="table-container">
+                <table mat-table [dataSource]="pendingUsers()" class="users-table pending-table">
+                  <ng-container matColumnDef="nomPending">
+                    <th mat-header-cell *matHeaderCellDef>Utilisateur</th>
+                    <td mat-cell *matCellDef="let user">
+                      <div class="user-info">
+                        <div class="user-avatar pending">
+                          {{ getInitials(user) }}
+                        </div>
+                        <div>
+                          <div class="user-name">{{ user.nom }} {{ user.prenom }}</div>
+                          <div class="user-email">{{ user.email }}</div>
+                        </div>
+                      </div>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="telephonePending">
+                    <th mat-header-cell *matHeaderCellDef>Téléphone</th>
+                    <td mat-cell *matCellDef="let user">{{ user.telephone || '-' }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="rolePending">
+                    <th mat-header-cell *matHeaderCellDef>Rôle demandé</th>
+                    <td mat-cell *matCellDef="let user">
+                      <span class="role-chip" [ngClass]="'role-' + user.role">
+                        {{ getRoleLabel(user.role) }}
+                      </span>
+                    </td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="createdAtPending">
+                    <th mat-header-cell *matHeaderCellDef>Date d'inscription</th>
+                    <td mat-cell *matCellDef="let user">{{ formatDate(user.createdAt) }}</td>
+                  </ng-container>
+
+                  <ng-container matColumnDef="pendingActions">
+                    <th mat-header-cell *matHeaderCellDef>Actions</th>
+                    <td mat-cell *matCellDef="let user">
+                      <div class="action-buttons">
+                        <button mat-raised-button color="primary" (click)="validateUser(user)">
+                          <mat-icon>check_circle</mat-icon>
+                          Valider
+                        </button>
+                        <button mat-raised-button color="warn" (click)="deleteUser(user)">
+                          <mat-icon>delete</mat-icon>
+                          Refuser
+                        </button>
+                      </div>
+                    </td>
+                  </ng-container>
+
+                  <tr mat-header-row *matHeaderRowDef="pendingColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: pendingColumns;"></tr>
+                </table>
+              </div>
+            }
+          </mat-tab>
+
+          <!-- Onglet: Utilisateurs validés -->
+          <mat-tab>
+            <ng-template mat-tab-label>
+              <mat-icon>verified_user</mat-icon>
+              <span class="tab-label">Comptes validés</span>
+              <span class="tab-badge success">{{ validatedUsers().length }}</span>
+            </ng-template>
+            
+            <div class="table-container">
+              <table mat-table [dataSource]="validatedUsers()" class="users-table">
+                <ng-container matColumnDef="nomValidated">
+                  <th mat-header-cell *matHeaderCellDef>Utilisateur</th>
+                  <td mat-cell *matCellDef="let user">
+                    <div class="user-info">
+                      <div class="user-avatar" [ngClass]="'role-' + user.role">
+                        {{ getInitials(user) }}
+                      </div>
+                      <div>
+                        <div class="user-name">{{ user.nom }} {{ user.prenom }}</div>
+                        <div class="user-email">{{ user.email }}</div>
+                      </div>
                     </div>
-                    <div>
-                      <div class="user-name">{{ user.nom }} {{ user.prenom }}</div>
-                      <div class="user-email">{{ user.email }}</div>
-                    </div>
-                  </div>
-                </td>
-              </ng-container>
+                  </td>
+                </ng-container>
 
-              <!-- Téléphone Column -->
-              <ng-container matColumnDef="telephone">
-                <th mat-header-cell *matHeaderCellDef>Téléphone</th>
-                <td mat-cell *matCellDef="let user">
-                  {{ user.telephone || '-' }}
-                </td>
-              </ng-container>
+                <ng-container matColumnDef="telephoneValidated">
+                  <th mat-header-cell *matHeaderCellDef>Téléphone</th>
+                  <td mat-cell *matCellDef="let user">{{ user.telephone || '-' }}</td>
+                </ng-container>
 
-              <!-- Rôle Column -->
-              <ng-container matColumnDef="role">
-                <th mat-header-cell *matHeaderCellDef>Rôle</th>
-                <td mat-cell *matCellDef="let user">
-                  <span class="role-chip" [ngClass]="'role-' + user.role">
-                    {{ getRoleLabel(user.role) }}
-                  </span>
-                </td>
-              </ng-container>
+                <ng-container matColumnDef="roleValidated">
+                  <th mat-header-cell *matHeaderCellDef>Rôle</th>
+                  <td mat-cell *matCellDef="let user">
+                    <span class="role-chip" [ngClass]="'role-' + user.role">
+                      {{ getRoleLabel(user.role) }}
+                    </span>
+                  </td>
+                </ng-container>
 
-              <!-- Statut Column -->
-              <ng-container matColumnDef="statut">
-                <th mat-header-cell *matHeaderCellDef>Statut</th>
-                <td mat-cell *matCellDef="let user">
-                  <span class="status-chip" [ngClass]="user.isActive ? 'active' : 'inactive'">
-                    {{ user.isActive ? 'Actif' : 'Inactif' }}
-                  </span>
-                </td>
-              </ng-container>
+                <ng-container matColumnDef="validatedAt">
+                  <th mat-header-cell *matHeaderCellDef>Validé le</th>
+                  <td mat-cell *matCellDef="let user">{{ formatDate(user.validatedAt) }}</td>
+                </ng-container>
 
-              <!-- Date création Column -->
-              <ng-container matColumnDef="createdAt">
-                <th mat-header-cell *matHeaderCellDef>Créé le</th>
-                <td mat-cell *matCellDef="let user">
-                  {{ formatDate(user.createdAt) }}
-                </td>
-              </ng-container>
+                <ng-container matColumnDef="statutValidated">
+                  <th mat-header-cell *matHeaderCellDef>Statut</th>
+                  <td mat-cell *matCellDef="let user">
+                    <span class="status-chip" [ngClass]="user.isActive ? 'active' : 'inactive'">
+                      {{ user.isActive ? 'Actif' : 'Inactif' }}
+                    </span>
+                  </td>
+                </ng-container>
 
-              <!-- Actions Column -->
-              <ng-container matColumnDef="actions">
-                <th mat-header-cell *matHeaderCellDef>Actions</th>
-                <td mat-cell *matCellDef="let user">
-                  <div class="action-buttons">
-                    <button mat-icon-button color="primary" 
-                            (click)="editUser(user)"
-                            matTooltip="Modifier">
-                      <mat-icon>edit</mat-icon>
-                    </button>
-                    <button mat-icon-button color="accent" 
-                            (click)="resetUserPassword(user)"
-                            matTooltip="Réinitialiser le mot de passe">
-                      <mat-icon>lock_reset</mat-icon>
-                    </button>
-                    @if (user._id !== currentUserId()) {
-                      <button mat-icon-button color="warn" 
-                              (click)="deleteUser(user)"
-                              matTooltip="Supprimer">
-                        <mat-icon>delete</mat-icon>
+                <ng-container matColumnDef="validatedActions">
+                  <th mat-header-cell *matHeaderCellDef>Actions</th>
+                  <td mat-cell *matCellDef="let user">
+                    <div class="action-buttons">
+                      @if (user._id !== currentUserId()) {
+                        <button mat-icon-button color="warn" 
+                                (click)="invalidateUser(user)"
+                                matTooltip="Révoquer la validation">
+                          <mat-icon>cancel</mat-icon>
+                        </button>
+                      }
+                      <button mat-icon-button color="primary" 
+                              (click)="editUser(user)"
+                              matTooltip="Modifier">
+                        <mat-icon>edit</mat-icon>
                       </button>
-                    }
-                  </div>
-                </td>
-              </ng-container>
+                    </div>
+                  </td>
+                </ng-container>
 
-              <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-              <tr mat-row *matRowDef="let row; columns: displayedColumns;" 
-                  [class.current-user]="row._id === currentUserId()"></tr>
-            </table>
-          </div>
-        }
+                <tr mat-header-row *matHeaderRowDef="validatedColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: validatedColumns;"
+                    [class.current-user]="row._id === currentUserId()"></tr>
+              </table>
+            </div>
+          </mat-tab>
+        </mat-tab-group>
       </mat-card>
     </div>
   `,
@@ -344,6 +548,18 @@ import { User } from '../../models';
       padding: 20px !important;
       border-radius: 12px !important;
       border: 1px solid var(--border-color);
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      }
+
+      &.warning {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border-color: #f59e0b;
+      }
 
       .stat-icon {
         font-size: 32px;
@@ -362,6 +578,11 @@ import { User } from '../../models';
           color: white;
         }
 
+        &.warning {
+          background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+          color: white;
+        }
+
         &.admin {
           background: linear-gradient(135deg, #dc2626 0%, #f87171 100%);
           color: white;
@@ -369,11 +590,6 @@ import { User } from '../../models';
 
         &.tresorier {
           background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%);
-          color: white;
-        }
-
-        &.membre {
-          background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%);
           color: white;
         }
       }
@@ -444,6 +660,47 @@ import { User } from '../../models';
       overflow: hidden;
     }
 
+    ::ng-deep .mat-mdc-tab-labels {
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    ::ng-deep .mat-mdc-tab {
+      min-width: 180px;
+    }
+
+    .tab-label {
+      margin-left: 8px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .tab-badge {
+      margin-left: 8px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #e2e8f0;
+      color: #475569;
+
+      &.warning {
+        background: #fef3c7;
+        color: #b45309;
+        animation: pulse 2s infinite;
+      }
+
+      &.success {
+        background: #d1fae5;
+        color: #059669;
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
     .loading-container {
       display: flex;
       flex-direction: column;
@@ -457,6 +714,34 @@ import { User } from '../../models';
       }
     }
 
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 20px;
+      text-align: center;
+
+      mat-icon {
+        font-size: 64px;
+        width: 64px;
+        height: 64px;
+        color: #10b981;
+        margin-bottom: 16px;
+      }
+
+      h3 {
+        margin: 0;
+        font-size: 20px;
+        color: #1e293b;
+      }
+
+      p {
+        margin: 8px 0 0 0;
+        color: #64748b;
+      }
+    }
+
     .table-container {
       overflow-x: auto;
     }
@@ -465,9 +750,9 @@ import { User } from '../../models';
       width: 100%;
 
       th {
-        background: #f8fafc;
-        font-weight: 600;
-        color: #475569;
+        background: #1e293b !important;
+        font-weight: 600 !important;
+        color: white !important;
         font-size: 13px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
@@ -482,6 +767,18 @@ import { User } from '../../models';
       }
 
       tr.current-user {
+        background: #fef3c7;
+      }
+
+      tr.pending-user {
+        background: #fff7ed;
+      }
+    }
+
+    .pending-table tr {
+      background: #fffbeb;
+
+      &:hover {
         background: #fef3c7;
       }
     }
@@ -513,6 +810,10 @@ import { User } from '../../models';
 
       &.role-membre {
         background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%);
+      }
+
+      &.pending {
+        background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
       }
     }
 
@@ -552,6 +853,32 @@ import { User } from '../../models';
       }
     }
 
+    .validation-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
+
+      &.validated {
+        background: #d1fae5;
+        color: #059669;
+      }
+
+      &.pending {
+        background: #fef3c7;
+        color: #b45309;
+      }
+    }
+
     .status-chip {
       display: inline-block;
       padding: 6px 14px;
@@ -573,6 +900,7 @@ import { User } from '../../models';
     .action-buttons {
       display: flex;
       gap: 4px;
+      flex-wrap: wrap;
     }
 
     @media (max-width: 768px) {
@@ -597,14 +925,16 @@ export class UsersComponent implements OnInit {
   private fb = inject(FormBuilder);
   private snackBar = inject(MatSnackBar);
 
-  users = signal<User[]>([]);
-  stats = signal<UserStats | null>(null);
+  allUsers = signal<User[]>([]);
   showForm = signal(false);
   editingUser = signal<User | null>(null);
   loading = signal(false);
   loadingList = signal(true);
+  selectedTab = 0;
 
-  displayedColumns = ['nom', 'telephone', 'role', 'statut', 'createdAt', 'actions'];
+  displayedColumns = ['nom', 'telephone', 'role', 'validation', 'statut', 'createdAt', 'actions'];
+  pendingColumns = ['nomPending', 'telephonePending', 'rolePending', 'createdAtPending', 'pendingActions'];
+  validatedColumns = ['nomValidated', 'telephoneValidated', 'roleValidated', 'validatedAt', 'statutValidated', 'validatedActions'];
 
   userForm: FormGroup = this.fb.group({
     nom: ['', Validators.required],
@@ -618,10 +948,13 @@ export class UsersComponent implements OnInit {
 
   currentUserId = signal<string>('');
 
+  // Computed signals for filtered lists
+  pendingUsers = computed(() => this.allUsers().filter(u => !u.isValidated));
+  validatedUsers = computed(() => this.allUsers().filter(u => u.isValidated));
+
   ngOnInit() {
     this.currentUserId.set(this.authService.getCurrentUser()?._id || '');
     this.loadUsers();
-    this.loadStats();
   }
 
   loadUsers() {
@@ -629,7 +962,7 @@ export class UsersComponent implements OnInit {
     this.userService.getUsers().subscribe({
       next: (response) => {
         if (response.success && response.data) {
-          this.users.set(response.data);
+          this.allUsers.set(response.data);
         }
         this.loadingList.set(false);
       },
@@ -640,14 +973,8 @@ export class UsersComponent implements OnInit {
     });
   }
 
-  loadStats() {
-    this.userService.getStats().subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          this.stats.set(response.data);
-        }
-      }
-    });
+  countByRole(role: string): number {
+    return this.allUsers().filter(u => u.role === role).length;
   }
 
   showAddForm() {
@@ -668,7 +995,6 @@ export class UsersComponent implements OnInit {
       role: user.role,
       isActive: user.isActive
     });
-    // Le mot de passe n'est pas requis en mode édition
     this.userForm.get('password')?.clearValidators();
     this.userForm.get('password')?.updateValueAndValidity();
     this.showForm.set(true);
@@ -687,14 +1013,12 @@ export class UsersComponent implements OnInit {
       const formData = this.userForm.value;
       
       if (this.editingUser()) {
-        // Mode édition
         const { password, ...updateData } = formData;
         this.userService.updateUser(this.editingUser()!._id, updateData).subscribe({
-          next: (response) => {
+          next: () => {
             this.loading.set(false);
             this.snackBar.open('Utilisateur mis à jour avec succès !', 'Fermer', { duration: 3000 });
             this.loadUsers();
-            this.loadStats();
             this.cancelForm();
           },
           error: (error) => {
@@ -704,13 +1028,11 @@ export class UsersComponent implements OnInit {
           }
         });
       } else {
-        // Mode création
         this.userService.createUser(formData).subscribe({
-          next: (response) => {
+          next: () => {
             this.loading.set(false);
             this.snackBar.open('Utilisateur créé avec succès !', 'Fermer', { duration: 3000 });
             this.loadUsers();
-            this.loadStats();
             this.cancelForm();
           },
           error: (error) => {
@@ -723,34 +1045,59 @@ export class UsersComponent implements OnInit {
     }
   }
 
-  resetUserPassword(user: User) {
-    const newPassword = prompt(`Nouveau mot de passe pour ${user.nom} ${user.prenom} (min. 6 caractères):`);
-    
-    if (!newPassword) return;
-    
-    if (newPassword.length < 6) {
-      this.snackBar.open('Le mot de passe doit contenir au moins 6 caractères', 'Fermer', { duration: 3000 });
-      return;
+  validateUser(user: User) {
+    if (confirm(`Valider le compte de ${user.nom} ${user.prenom} ?\n\nCet utilisateur pourra se connecter à l'application.`)) {
+      this.userService.validateUser(user._id).subscribe({
+        next: () => {
+          this.snackBar.open(`Compte de ${user.nom} ${user.prenom} validé avec succès !`, 'Fermer', { duration: 3000 });
+          this.loadUsers();
+        },
+        error: (error) => {
+          const msg = error.error?.message || 'Erreur lors de la validation';
+          this.snackBar.open(msg, 'Fermer', { duration: 3000 });
+        }
+      });
     }
+  }
 
-    this.userService.resetPassword(user._id, newPassword).subscribe({
-      next: () => {
-        this.snackBar.open('Mot de passe réinitialisé avec succès !', 'Fermer', { duration: 3000 });
-      },
-      error: (error) => {
-        const msg = error.error?.message || 'Erreur lors de la réinitialisation';
-        this.snackBar.open(msg, 'Fermer', { duration: 3000 });
-      }
-    });
+  invalidateUser(user: User) {
+    if (confirm(`Révoquer la validation du compte de ${user.nom} ${user.prenom} ?\n\nCet utilisateur ne pourra plus se connecter.`)) {
+      this.userService.invalidateUser(user._id).subscribe({
+        next: () => {
+          this.snackBar.open(`Validation du compte de ${user.nom} ${user.prenom} révoquée`, 'Fermer', { duration: 3000 });
+          this.loadUsers();
+        },
+        error: (error) => {
+          const msg = error.error?.message || 'Erreur lors de l\'invalidation';
+          this.snackBar.open(msg, 'Fermer', { duration: 3000 });
+        }
+      });
+    }
+  }
+
+  changeRole(user: User, newRole: string) {
+    if (user.role === newRole) return;
+    
+    if (confirm(`Changer le rôle de ${user.nom} ${user.prenom} en "${this.getRoleLabel(newRole)}" ?`)) {
+      this.userService.changeUserRole(user._id, newRole).subscribe({
+        next: () => {
+          this.snackBar.open(`Rôle mis à jour : ${this.getRoleLabel(newRole)}`, 'Fermer', { duration: 3000 });
+          this.loadUsers();
+        },
+        error: (error) => {
+          const msg = error.error?.message || 'Erreur lors du changement de rôle';
+          this.snackBar.open(msg, 'Fermer', { duration: 3000 });
+        }
+      });
+    }
   }
 
   deleteUser(user: User) {
-    if (confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${user.nom} ${user.prenom} ?`)) {
+    if (confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${user.nom} ${user.prenom} ?\n\nCette action est irréversible.`)) {
       this.userService.deleteUser(user._id).subscribe({
         next: () => {
           this.snackBar.open('Utilisateur supprimé avec succès !', 'Fermer', { duration: 3000 });
           this.loadUsers();
-          this.loadStats();
         },
         error: (error) => {
           const msg = error.error?.message || 'Erreur lors de la suppression';
@@ -773,7 +1120,7 @@ export class UsersComponent implements OnInit {
     return labels[role] || role;
   }
 
-  formatDate(date: string | Date): string {
+  formatDate(date: string | Date | undefined): string {
     if (!date) return '-';
     return new Date(date).toLocaleDateString('fr-FR', {
       day: '2-digit',

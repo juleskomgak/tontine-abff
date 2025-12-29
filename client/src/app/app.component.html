@@ -16,10 +16,12 @@
       <span>Tontines</span>
     </button>
     
-    <button mat-button [routerLink]="['/members']">
-      <mat-icon>people</mat-icon>
-      <span>Membres</span>
-    </button>
+    @if (authService.hasRole('admin')) {
+      <button mat-button [routerLink]="['/members']">
+        <mat-icon>people</mat-icon>
+        <span>Membres</span>
+      </button>
+    }
     
     <button mat-button [routerLink]="['/contributions']">
       <mat-icon>payments</mat-icon>
@@ -36,10 +38,12 @@
       <span>Bénéficiaires</span>
     </button>
     
-    <button mat-button [routerLink]="['/solidarite']">
-      <mat-icon>favorite</mat-icon>
-      <span>Solidarité</span>
-    </button>
+    @if (authService.hasRole('admin', 'membre', 'tresorier')) {
+      <button mat-button [routerLink]="['/solidarite']">
+        <mat-icon>favorite</mat-icon>
+        <span>Solidarité</span>
+      </button>
+    }
     
     @if (authService.hasRole('admin', 'tresorier')) {
       <button mat-button [routerLink]="['/banque']">

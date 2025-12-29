@@ -78,13 +78,6 @@ import { AuthService } from '../../services/auth.service';
           <div class="register-link">
             <p>Pas encore de compte ? <a href="/register">S'inscrire</a></p>
           </div>
-
-          <div class="demo-accounts">
-            <h3>Comptes de démonstration :</h3>
-            <p><strong>Admin:</strong> admin&#64;tontine.com / Admin123!</p>
-            <p><strong>Trésorier:</strong> tresorier&#64;tontine.com / Tresorier123!</p>
-            <p><strong>Membre:</strong> membre&#64;tontine.com / Membre123!</p>
-          </div>
         </mat-card-content>
       </mat-card>
     </div>
@@ -260,56 +253,6 @@ import { AuthService } from '../../services/auth.service';
         &:hover {
           text-decoration: underline;
           color: #1e40af;
-        }
-      }
-    }
-
-    .demo-accounts {
-      margin-top: 32px;
-      padding: 24px;
-      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-      border-radius: 14px;
-      border: 2px solid #bfdbfe;
-      
-      h3 {
-        margin: 0 0 16px 0;
-        font-size: 14px;
-        color: #1e293b;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        
-        &::before {
-          content: '🔑';
-          font-size: 18px;
-        }
-      }
-      
-      p {
-        margin: 10px 0;
-        font-size: 14px;
-        color: #1e293b;
-        font-family: 'Monaco', 'Courier New', monospace;
-        background: white;
-        padding: 12px 14px;
-        border-radius: 8px;
-        border: 2px solid #cbd5e1;
-        transition: all 0.2s ease;
-        
-        &:hover {
-          border-color: #3b82f6;
-          box-shadow: 0 2px 4px rgb(37 99 235 / 0.1);
-          transform: translateX(4px);
-        }
-        
-        strong {
-          color: #2563eb;
-          font-weight: 700;
-          display: inline-block;
-          min-width: 90px;
         }
       }
     }

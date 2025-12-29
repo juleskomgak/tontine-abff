@@ -38,21 +38,23 @@ router.post('/register', [
       });
     }
 
-    // Créer l'utilisateur
+    // Créer l'utilisateur (non validé par défaut)
     const user = await User.create({
       nom,
       prenom,
       email,
       password,
       telephone,
-      role: role || 'membre'
+      role: role || 'membre',
+      isValidated: false
     });
 
     res.status(201).json({
       success: true,
+      message: 'Compte créé avec succès. En attente de validation par un administrateur.',
       data: {
         user,
-        token: generateToken(user._id)
+        pendingValidation: true
       }
     });
   } catch (error) {
@@ -102,6 +104,14 @@ router.post('/login', [
       return res.status(401).json({
         success: false,
         message: 'Votre compte a été désactivé. Contactez l\'administrateur.'
+      });
+    }
+
+    // Vérifier si le compte est validé (les admins sont toujours validés)
+    if (!user.isValidated && user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Votre compte est en attente de validation par un administrateur.'
       });
     }
 
@@ -177,6 +187,230 @@ router.put('/updatepassword', protect, [
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la mise à jour',
+      error: error.message
+    });
+  }
+});
+
+// @route   GET /api/auth/users
+// @desc    Obtenir tous les utilisateurs (pour validation)
+// @access  Private (Admin)
+router.get('/users', protect, async (req, res) => {
+  try {
+    // Vérifier que l'utilisateur est admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès refusé. Réservé aux administrateurs.'
+      });
+    }
+
+    const { validated, search } = req.query;
+    let query = {};
+
+    if (validated !== undefined) {
+      query.isValidated = validated === 'true';
+    }
+
+    if (search) {
+      query.$or = [
+        { nom: { $regex: search, $options: 'i' } },
+        { prenom: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const users = await User.find(query)
+      .populate('validatedBy', 'nom prenom')
+      .sort('-createdAt');
+
+    res.json({
+      success: true,
+      count: users.length,
+      data: users
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des utilisateurs',
+      error: error.message
+    });
+  }
+});
+
+// @route   PUT /api/auth/users/:id/validate
+// @desc    Valider un compte utilisateur
+// @access  Private (Admin)
+router.put('/users/:id/validate', protect, async (req, res) => {
+  try {
+    // Vérifier que l'utilisateur est admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès refusé. Réservé aux administrateurs.'
+      });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    user.isValidated = true;
+    user.validatedAt = new Date();
+    user.validatedBy = req.user.id;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Compte validé avec succès',
+      data: user
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la validation',
+      error: error.message
+    });
+  }
+});
+
+// @route   PUT /api/auth/users/:id/invalidate
+// @desc    Invalider un compte utilisateur
+// @access  Private (Admin)
+router.put('/users/:id/invalidate', protect, async (req, res) => {
+  try {
+    // Vérifier que l'utilisateur est admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès refusé. Réservé aux administrateurs.'
+      });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    // Empêcher l'invalidation d'un admin par lui-même
+    if (user._id.toString() === req.user.id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vous ne pouvez pas invalider votre propre compte'
+      });
+    }
+
+    user.isValidated = false;
+    user.validatedAt = null;
+    user.validatedBy = null;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Compte invalidé avec succès',
+      data: user
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de l\'invalidation',
+      error: error.message
+    });
+  }
+});
+
+// @route   PUT /api/auth/users/:id/role
+// @desc    Modifier le rôle d'un utilisateur
+// @access  Private (Admin)
+router.put('/users/:id/role', protect, async (req, res) => {
+  try {
+    // Vérifier que l'utilisateur est admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès refusé. Réservé aux administrateurs.'
+      });
+    }
+
+    const { role } = req.body;
+    if (!['admin', 'tresorier', 'membre'].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rôle invalide'
+      });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    user.role = role;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Rôle modifié avec succès',
+      data: user
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la modification du rôle',
+      error: error.message
+    });
+  }
+});
+
+// @route   DELETE /api/auth/users/:id
+// @desc    Supprimer un utilisateur
+// @access  Private (Admin)
+router.delete('/users/:id', protect, async (req, res) => {
+  try {
+    // Vérifier que l'utilisateur est admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès refusé. Réservé aux administrateurs.'
+      });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    // Empêcher la suppression de son propre compte
+    if (user._id.toString() === req.user.id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vous ne pouvez pas supprimer votre propre compte'
+      });
+    }
+
+    await user.deleteOne();
+
+    res.json({
+      success: true,
+      message: 'Utilisateur supprimé avec succès'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la suppression',
       error: error.message
     });
   }

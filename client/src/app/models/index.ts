@@ -7,6 +7,9 @@ export interface User {
   telephone?: string;
   role: 'admin' | 'membre' | 'tresorier';
   isActive: boolean;
+  isValidated?: boolean;
+  validatedAt?: Date;
+  validatedBy?: User | string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -92,9 +95,11 @@ export interface Tour {
 
 export interface AuthResponse {
   success: boolean;
+  message?: string;
   data: {
     user: User;
-    token: string;
+    token?: string;
+    pendingValidation?: boolean;
   };
 }
 

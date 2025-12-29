@@ -77,8 +77,8 @@ router.get('/:id', async (req, res) => {
 
 // @route   POST /api/members
 // @desc    Créer un nouveau membre
-// @access  Private (Admin, Trésorier)
-router.post('/', authorize('admin', 'tresorier'), [
+// @access  Private (Admin uniquement)
+router.post('/', authorize('admin'), [
   body('nom').notEmpty().withMessage('Le nom est requis'),
   body('prenom').notEmpty().withMessage('Le prénom est requis'),
   body('telephone').notEmpty().withMessage('Le téléphone est requis')
@@ -111,8 +111,8 @@ router.post('/', authorize('admin', 'tresorier'), [
 
 // @route   PUT /api/members/:id
 // @desc    Mettre à jour un membre
-// @access  Private (Admin, Trésorier)
-router.put('/:id', authorize('admin', 'tresorier'), async (req, res) => {
+// @access  Private (Admin uniquement)
+router.put('/:id', authorize('admin'), async (req, res) => {
   try {
     let member = await Member.findById(req.params.id);
 

@@ -23,12 +23,14 @@ export const routes: Routes = [
   {
     path: 'members',
     loadComponent: () => import('./pages/members/members.component').then(m => m.MembersComponent),
-    canActivate: [authGuard]
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['admin'] }
   },
   {
     path: 'members/:id',
     loadComponent: () => import('./pages/member-detail/member-detail.component').then(m => m.MemberDetailComponent),
-    canActivate: [authGuard]
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['admin'] }
   },
   {
     path: 'tontines',
@@ -76,7 +78,8 @@ export const routes: Routes = [
   {
     path: 'solidarite',
     loadComponent: () => import('./pages/solidarite/solidarite.component').then(m => m.SolidariteComponent),
-    canActivate: [authGuard]
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['admin', 'membre', 'tresorier'] }
   },
   {
     path: 'admin/users',

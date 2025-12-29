@@ -210,8 +210,18 @@ export class RegisterComponent {
       this.authService.register(this.registerForm.value).subscribe({
         next: (response) => {
           this.loading.set(false);
-          this.snackBar.open('Inscription réussie !', 'Fermer', { duration: 3000 });
-          this.router.navigate(['/dashboard']);
+          // Vérifier si le compte est en attente de validation
+          if (response.data?.pendingValidation) {
+            this.snackBar.open(
+              'Compte créé ! En attente de validation par un administrateur.',
+              'Fermer',
+              { duration: 8000, panelClass: ['info-snackbar'] }
+            );
+            this.router.navigate(['/login']);
+          } else {
+            this.snackBar.open('Inscription réussie !', 'Fermer', { duration: 3000 });
+            this.router.navigate(['/dashboard']);
+          }
         },
         error: (error) => {
           this.loading.set(false);

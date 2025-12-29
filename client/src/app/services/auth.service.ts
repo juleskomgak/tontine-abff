@@ -40,7 +40,7 @@ export class AuthService {
     return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/login`, credentials)
       .pipe(
         tap(response => {
-          if (response.success && response.data) {
+          if (response.success && response.data && response.data.token) {
             this.setSession(response.data.token, response.data.user);
           }
         })
@@ -51,7 +51,8 @@ export class AuthService {
     return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/register`, data)
       .pipe(
         tap(response => {
-          if (response.success && response.data) {
+          // Ne pas créer de session si le compte est en attente de validation
+          if (response.success && response.data && response.data.token && !response.data.pendingValidation) {
             this.setSession(response.data.token, response.data.user);
           }
         })
