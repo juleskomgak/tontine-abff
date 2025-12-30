@@ -17,10 +17,12 @@
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
 }
 
+
 html, body { 
   height: 100%; 
   margin: 0;
   padding: 0;
+  font-size: 16px;
 }
 
 body { 
@@ -30,6 +32,63 @@ body {
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+// Responsive global
+@media (max-width: 1024px) {
+  html, body {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 768px) {
+  html, body {
+    font-size: 14px;
+  }
+  .mat-mdc-card, .mat-mdc-form-field, .mat-mdc-table, .mat-mdc-dialog-container {
+    margin: 8px !important;
+    padding: 8px !important;
+    font-size: 14px !important;
+  }
+  .mat-mdc-form-field-infix {
+    padding: 0 4px !important;
+  }
+  .mat-mdc-raised-button, .mat-mdc-button {
+    min-width: 32px !important;
+    font-size: 13px !important;
+    padding: 4px 8px !important;
+  }
+  table, .mat-mdc-table {
+    font-size: 13px !important;
+    overflow-x: auto;
+    display: block;
+    width: 100%;
+  }
+  th, td {
+    padding: 4px !important;
+  }
+  h1, h2, h3 {
+    font-size: 1.1em !important;
+  }
+}
+
+@media (max-width: 480px) {
+  html, body {
+    font-size: 13px;
+  }
+  .mat-mdc-card, .mat-mdc-form-field, .mat-mdc-table, .mat-mdc-dialog-container {
+    margin: 4px !important;
+    padding: 4px !important;
+    font-size: 13px !important;
+  }
+  .mat-mdc-raised-button, .mat-mdc-button {
+    min-width: 28px !important;
+    font-size: 12px !important;
+    padding: 2px 6px !important;
+  }
+  h1, h2, h3 {
+    font-size: 1em !important;
+  }
 }
 
 // Amélioration du contraste pour Material

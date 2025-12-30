@@ -64,12 +64,58 @@ mat-toolbar {
   }
 }
 
+@media (max-width: 1024px) {
+  .logo {
+    font-size: 18px;
+  }
+  mat-toolbar button {
+    font-size: 14px;
+    padding: 4px 8px;
+  }
+}
+
 @media (max-width: 768px) {
   mat-toolbar button span {
     display: none;
   }
-  
   .logo {
-    font-size: 18px;
+    font-size: 16px;
+    margin-left: 4px;
+  }
+  mat-toolbar button {
+    min-width: 32px;
+    font-size: 13px;
+    padding: 2px 4px;
+  }
+  .user-info {
+    padding: 8px;
+    .user-name {
+      font-size: 13px;
+    }
+    .user-role {
+      font-size: 10px;
+      padding: 1px 4px;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .logo {
+    font-size: 14px;
+  }
+  mat-toolbar button {
+    min-width: 28px;
+    font-size: 12px;
+    padding: 1px 2px;
+  }
+  .user-info {
+    padding: 4px;
+    .user-name {
+      font-size: 12px;
+    }
+    .user-role {
+      font-size: 9px;
+      padding: 1px 2px;
+    }
   }
 }
