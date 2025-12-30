@@ -1,90 +1,142 @@
-@if (authService.isAuthenticated()) {
-  <mat-toolbar color="primary">
-    <button mat-icon-button>
-      <mat-icon>menu</mat-icon>
-    </button>
-    <span class="logo">🎯 {{ title }}</span>
-    <span class="spacer"></span>
-    
-    <button mat-button [routerLink]="['/dashboard']">
-      <mat-icon>dashboard</mat-icon>
-      <span>Tableau de bord</span>
-    </button>
-    
-    <button mat-button [routerLink]="['/tontines']">
-      <mat-icon>account_balance</mat-icon>
-      <span>Tontines</span>
-    </button>
-    
-    @if (authService.hasRole('admin')) {
-      <button mat-button [routerLink]="['/members']">
-        <mat-icon>people</mat-icon>
-        <span>Membres</span>
-      </button>
-    }
-    
-    <button mat-button [routerLink]="['/contributions']">
-      <mat-icon>payments</mat-icon>
-      <span>Cotisations</span>
-    </button>
-    
-    <button mat-button [routerLink]="['/tours']">
-      <mat-icon>casino</mat-icon>
-      <span>Tours</span>
-    </button>
-    
-    <button mat-button [routerLink]="['/beneficiaires']">
-      <mat-icon>account_balance_wallet</mat-icon>
-      <span>Bénéficiaires</span>
-    </button>
-    
-    @if (authService.hasRole('admin', 'membre', 'tresorier')) {
-      <button mat-button [routerLink]="['/solidarite']">
-        <mat-icon>favorite</mat-icon>
-        <span>Solidarité</span>
-      </button>
-    }
-    
-    @if (authService.hasRole('admin', 'tresorier')) {
-      <button mat-button [routerLink]="['/cartes-codebaf']">
-        <mat-icon>card_membership</mat-icon>
-        <span>Cartes CODEBAF</span>
-      </button>
-      <button mat-button [routerLink]="['/banque']">
-        <mat-icon>account_balance</mat-icon>
-        <span>Banque centrale</span>
-      </button>
-    }
-    
-    @if (authService.hasRole('admin')) {
-      <button mat-button [routerLink]="['/admin/users']">
-        <mat-icon>admin_panel_settings</mat-icon>
-        <span>Admin</span>
-      </button>
-    }
-    
-    <button mat-button [matMenuTriggerFor]="userMenu">
-      <mat-icon>account_circle</mat-icon>
-      <span>{{ authService.getCurrentUser()?.prenom }}</span>
-      <mat-icon>arrow_drop_down</mat-icon>
-    </button>
-    
-    <mat-menu #userMenu="matMenu">
-      <div class="user-info">
-        <p class="user-name">{{ authService.getCurrentUser()?.nom }} {{ authService.getCurrentUser()?.prenom }}</p>
-        <p class="user-role">{{ authService.getCurrentUser()?.role }}</p>
-      </div>
-      <mat-divider></mat-divider>
-      <button mat-menu-item (click)="logout()">
-        <mat-icon>logout</mat-icon>
-        <span>Déconnexion</span>
-      </button>
-    </mat-menu>
-  </mat-toolbar>
 
-  <div class="app-content">
-    <router-outlet />
-  </div>
+@if (authService.isAuthenticated()) {
+  <mat-sidenav-container class="sidenav-container">
+    <mat-sidenav #drawer class="sidenav" mode="over" [opened]="false">
+      <mat-nav-list>
+        <a mat-list-item [routerLink]="['/dashboard']" (click)="drawer.close()">
+          <mat-icon>dashboard</mat-icon>
+          <span>Tableau de bord</span>
+        </a>
+        <a mat-list-item [routerLink]="['/tontines']" (click)="drawer.close()">
+          <mat-icon>account_balance</mat-icon>
+          <span>Tontines</span>
+        </a>
+        @if (authService.hasRole('admin')) {
+          <a mat-list-item [routerLink]="['/members']" (click)="drawer.close()">
+            <mat-icon>people</mat-icon>
+            <span>Membres</span>
+          </a>
+        }
+        <a mat-list-item [routerLink]="['/contributions']" (click)="drawer.close()">
+          <mat-icon>payments</mat-icon>
+          <span>Cotisations</span>
+        </a>
+        <a mat-list-item [routerLink]="['/tours']" (click)="drawer.close()">
+          <mat-icon>casino</mat-icon>
+          <span>Tours</span>
+        </a>
+        <a mat-list-item [routerLink]="['/beneficiaires']" (click)="drawer.close()">
+          <mat-icon>account_balance_wallet</mat-icon>
+          <span>Bénéficiaires</span>
+        </a>
+        @if (authService.hasRole('admin', 'membre', 'tresorier')) {
+          <a mat-list-item [routerLink]="['/solidarite']" (click)="drawer.close()">
+            <mat-icon>favorite</mat-icon>
+            <span>Solidarité</span>
+          </a>
+        }
+        @if (authService.hasRole('admin', 'tresorier')) {
+          <a mat-list-item [routerLink]="['/cartes-codebaf']" (click)="drawer.close()">
+            <mat-icon>card_membership</mat-icon>
+            <span>Cartes CODEBAF</span>
+          </a>
+          <a mat-list-item [routerLink]="['/banque']" (click)="drawer.close()">
+            <mat-icon>account_balance</mat-icon>
+            <span>Banque centrale</span>
+          </a>
+        }
+        @if (authService.hasRole('admin')) {
+          <a mat-list-item [routerLink]="['/admin/users']" (click)="drawer.close()">
+            <mat-icon>admin_panel_settings</mat-icon>
+            <span>Admin</span>
+          </a>
+        }
+        <mat-divider></mat-divider>
+        <a mat-list-item (click)="logout(); drawer.close()">
+          <mat-icon>logout</mat-icon>
+          <span>Déconnexion</span>
+        </a>
+      </mat-nav-list>
+    </mat-sidenav>
+    <mat-sidenav-content>
+      <mat-toolbar color="primary">
+        <button mat-icon-button (click)="drawer.toggle()" class="menu-btn show-mobile">
+          <mat-icon>menu</mat-icon>
+        </button>
+        <span class="logo">🎯 {{ title }}</span>
+        <span class="spacer"></span>
+        <ng-container class="hide-mobile">
+          <button mat-button [routerLink]="['/dashboard']">
+            <mat-icon>dashboard</mat-icon>
+            <span>Tableau de bord</span>
+          </button>
+          <button mat-button [routerLink]="['/tontines']">
+            <mat-icon>account_balance</mat-icon>
+            <span>Tontines</span>
+          </button>
+          @if (authService.hasRole('admin')) {
+            <button mat-button [routerLink]="['/members']">
+              <mat-icon>people</mat-icon>
+              <span>Membres</span>
+            </button>
+          }
+          <button mat-button [routerLink]="['/contributions']">
+            <mat-icon>payments</mat-icon>
+            <span>Cotisations</span>
+          </button>
+          <button mat-button [routerLink]="['/tours']">
+            <mat-icon>casino</mat-icon>
+            <span>Tours</span>
+          </button>
+          <button mat-button [routerLink]="['/beneficiaires']">
+            <mat-icon>account_balance_wallet</mat-icon>
+            <span>Bénéficiaires</span>
+          </button>
+          @if (authService.hasRole('admin', 'membre', 'tresorier')) {
+            <button mat-button [routerLink]="['/solidarite']">
+              <mat-icon>favorite</mat-icon>
+              <span>Solidarité</span>
+            </button>
+          }
+          @if (authService.hasRole('admin', 'tresorier')) {
+            <button mat-button [routerLink]="['/cartes-codebaf']">
+              <mat-icon>card_membership</mat-icon>
+              <span>Cartes CODEBAF</span>
+            </button>
+            <button mat-button [routerLink]="['/banque']">
+              <mat-icon>account_balance</mat-icon>
+              <span>Banque centrale</span>
+            </button>
+          }
+          @if (authService.hasRole('admin')) {
+            <button mat-button [routerLink]="['/admin/users']">
+              <mat-icon>admin_panel_settings</mat-icon>
+              <span>Admin</span>
+            </button>
+          }
+        </ng-container>
+        <button mat-button [matMenuTriggerFor]="userMenu">
+          <mat-icon>account_circle</mat-icon>
+          <span>{{ authService.getCurrentUser()?.prenom }}</span>
+          <mat-icon>arrow_drop_down</mat-icon>
+        </button>
+        <mat-menu #userMenu="matMenu">
+          <div class="user-info">
+            <p class="user-name">{{ authService.getCurrentUser()?.nom }} {{ authService.getCurrentUser()?.prenom }}</p>
+            <p class="user-role">{{ authService.getCurrentUser()?.role }}</p>
+          </div>
+          <mat-divider></mat-divider>
+          <button mat-menu-item (click)="logout()">
+            <mat-icon>logout</mat-icon>
+            <span>Déconnexion</span>
+          </button>
+        </mat-menu>
+      </mat-toolbar>
+      <div class="app-content">
+        <router-outlet />
+      </div>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
 } @else {
   <router-outlet />
 }

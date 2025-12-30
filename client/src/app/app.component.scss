@@ -43,6 +43,32 @@ mat-toolbar {
   background: linear-gradient(to bottom, #f8fafc 0%, #e2e8f0 100%);
 }
 
+.sidenav-container {
+  height: 100dvh;
+}
+.sidenav {
+  width: 260px;
+}
+.menu-btn {
+  margin-right: 8px;
+}
+.show-mobile {
+  display: none;
+}
+.hide-mobile {
+  display: flex;
+  gap: 4px;
+}
+
+@media (max-width: 1024px) {
+  .hide-mobile {
+    display: none !important;
+  }
+  .show-mobile {
+    display: inline-flex !important;
+  }
+}
+
 .user-info {
   padding: 16px;
   border-bottom: 1px solid var(--border-color);
