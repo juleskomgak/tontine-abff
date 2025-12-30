@@ -25,10 +25,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Database connection
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
+mongoose.connect(process.env.MONGODB_URI)
 .then(() => console.log('✅ MongoDB connecté avec succès'))
 .catch(err => console.error('❌ Erreur de connexion MongoDB:', err));
 
@@ -41,6 +38,7 @@ app.use('/api/contributions', require('./routes/contributions'));
 app.use('/api/tours', require('./routes/tours'));
 app.use('/api/banque', require('./routes/banque'));
 app.use('/api/solidarites', require('./routes/solidarites'));
+app.use('/api/cartes-codebaf', require('./routes/cartes-codebaf'));
 
 // Welcome route
 app.get('/', (req, res) => {

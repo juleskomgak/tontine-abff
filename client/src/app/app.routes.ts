@@ -82,6 +82,12 @@ export const routes: Routes = [
     data: { roles: ['admin', 'membre', 'tresorier'] }
   },
   {
+    path: 'cartes-codebaf',
+    loadComponent: () => import('./pages/cartes-codebaf/cartes-codebaf.component').then(m => m.CartesCodebafComponent),
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['admin', 'tresorier'] }
+  },
+  {
     path: 'admin/users',
     loadComponent: () => import('./pages/users/users.component').then(m => m.UsersComponent),
     canActivate: [authGuard, roleGuard],

@@ -4,6 +4,7 @@ const { body, validationResult } = require('express-validator');
 const { protect, authorize } = require('../middleware/auth');
 const SolidariteConfig = require('../models/Solidarite');
 const PaiementSolidarite = require('../models/PaiementSolidarite');
+const BanqueCentrale = require('../models/BanqueCentrale');
 const Member = require('../models/Member');
 
 // Protection de toutes les routes
@@ -190,6 +191,28 @@ router.post('/paiements', [
       .populate('membre', 'nom prenom telephone')
       .populate('enregistrePar', 'nom prenom');
 
+    // Enregistrer une transaction dans la banque centrale (global)
+    try {
+      let banque = await BanqueCentrale.findOne({});
+      if (!banque) {
+        banque = await BanqueCentrale.create({ notes: 'Banque centrale initialisée' });
+      }
+      banque.transactions.push({
+        type: 'paiement_solidarite',
+        montant: paiement.montant,
+        paiementSolidarite: paiement._id,
+        membre: paiement.membre,
+        effectuePar: req.user._id,
+        date: paiement.createdAt || Date.now(),
+        description: `Paiement solidarité ${paiement.typeSolidarite} - ${paiement.annee}`
+      });
+      banque.soldeCotisations = (banque.soldeCotisations || 0) + paiement.montant;
+      banque.totalCotise = (banque.totalCotise || 0) + paiement.montant;
+      await banque.save();
+    } catch (err) {
+      console.error('Erreur en enregistrant la transaction solidarité dans la banque:', err);
+    }
+
     res.status(201).json({ success: true, data: populatedPaiement });
   } catch (error) {
     console.error('Erreur:', error);
@@ -212,6 +235,23 @@ router.delete('/paiements/:id', authorize('admin', 'tresorier'), async (req, res
     }
 
     res.json({ success: true, data: {} });
+    // Retirer la transaction correspondante de la banque centrale si présente
+    try {
+      const banque = await BanqueCentrale.findOne({});
+      if (banque) {
+        // supprimer la transaction liée au paiement
+        const beforeCount = banque.transactions.length;
+        banque.transactions = banque.transactions.filter(t => !t.paiementSolidarite || t.paiementSolidarite.toString() !== req.params.id);
+        if (banque.transactions.length !== beforeCount) {
+          // ajuster les totaux
+          banque.soldeCotisations = banque.transactions.reduce((sum, t) => sum + (t.type === 'paiement_solidarite' || t.type === 'cotisation' ? t.montant : 0), 0);
+          banque.totalCotise = banque.soldeCotisations;
+          await banque.save();
+        }
+      }
+    } catch (err) {
+      console.error('Erreur lors de la mise à jour de la banque après suppression paiement solidarité:', err);
+    }
   } catch (error) {
     console.error('Erreur:', error);
     res.status(500).json({ success: false, error: 'Erreur serveur' });

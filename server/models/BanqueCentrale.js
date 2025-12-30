@@ -1,11 +1,9 @@
-// Compatibility wrapper: BanqueTontine now maps to BanqueCentrale
-module.exports = require('./BanqueCentrale');
 const mongoose = require('mongoose');
 
 const transactionSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['cotisation', 'paiement_tour', 'refus_tour', 'redistribution', 'ajustement'],
+    enum: ['cotisation', 'paiement_tour', 'refus_tour', 'redistribution', 'ajustement', 'paiement_solidarite', 'paiement_carte_codebaf'],
     required: true
   },
   montant: {
@@ -13,6 +11,10 @@ const transactionSchema = new mongoose.Schema({
     required: true
   },
   description: String,
+  tontine: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tontine'
+  },
   tour: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Tour'
@@ -20,6 +22,14 @@ const transactionSchema = new mongoose.Schema({
   contribution: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Contribution'
+  },
+  paiementSolidarite: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PaiementSolidarite'
+  },
+  paiementCarte: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PaiementCarte'
   },
   membre: {
     type: mongoose.Schema.Types.ObjectId,
@@ -36,27 +46,23 @@ const transactionSchema = new mongoose.Schema({
   }
 }, { _id: true });
 
-const banqueTontineSchema = new mongoose.Schema({
+const banqueCentraleSchema = new mongoose.Schema({
+  // Optionally linked to a tontine; when absent the record represents global central bank
   tontine: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Tontine',
-    required: true,
-    unique: true
+    ref: 'Tontine'
   },
   soldeTotal: {
     type: Number,
-    default: 0,
-    min: 0
+    default: 0
   },
   soldeCotisations: {
     type: Number,
-    default: 0,
-    min: 0
+    default: 0
   },
   soldeRefus: {
     type: Number,
-    default: 0,
-    min: 0
+    default: 0
   },
   totalCotise: {
     type: Number,
@@ -69,6 +75,18 @@ const banqueTontineSchema = new mongoose.Schema({
   totalRefus: {
     type: Number,
     default: 0
+  },
+  // Solidarités summary
+  solidarites: [{
+    typeSolidarite: String,
+    totalCollecte: { type: Number, default: 0 },
+    montantAttendu: { type: Number, default: 0 }
+  }],
+  // Cartes CODEBAF summary
+  cartesCodebaf: {
+    totalCartes: { type: Number, default: 0 },
+    totalMontantAttendu: { type: Number, default: 0 },
+    totalMontantPaye: { type: Number, default: 0 }
   },
   toursRefuses: [{
     tour: {
@@ -112,13 +130,11 @@ const banqueTontineSchema = new mongoose.Schema({
   notes: String
 }, { timestamps: true });
 
-// Calculer le solde total
-banqueTontineSchema.pre('save', function(next) {
-  this.soldeTotal = this.soldeCotisations + this.soldeRefus;
+banqueCentraleSchema.pre('save', function(next) {
+  this.soldeTotal = (this.soldeCotisations || 0) + (this.soldeRefus || 0);
   next();
 });
 
-// Index pour recherche rapide
-banqueTontineSchema.index({ tontine: 1 });
+banqueCentraleSchema.index({ tontine: 1 });
 
-module.exports = mongoose.model('BanqueTontine', banqueTontineSchema);
+module.exports = mongoose.model('BanqueCentrale', banqueCentraleSchema);

@@ -5,7 +5,7 @@ const Member = require('./models/Member');
 const Tontine = require('./models/Tontine');
 const Contribution = require('./models/Contribution');
 const Tour = require('./models/Tour');
-const BanqueTontine = require('./models/BanqueTontine');
+const BanqueCentrale = require('./models/BanqueCentrale');
 
 const seedDatabase = async () => {
   try {

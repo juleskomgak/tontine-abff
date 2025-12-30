@@ -4,7 +4,7 @@ const { body, validationResult } = require('express-validator');
 const Tour = require('../models/Tour');
 const Tontine = require('../models/Tontine');
 const Member = require('../models/Member');
-const BanqueTontine = require('../models/BanqueTontine');
+const BanqueCentrale = require('../models/BanqueCentrale');
 const Contribution = require('../models/Contribution');
 const { protect, authorize } = require('../middleware/auth');
 

@@ -188,8 +188,8 @@ import { User } from '../../models';
                     <mat-progress-spinner diameter="20" mode="indeterminate"></mat-progress-spinner>
                   } @else {
                     <mat-icon>{{ editingUser() ? 'save' : 'add' }}</mat-icon>
-                    {{ editingUser() ? 'Enregistrer' : 'Créer' }}
                   }
+                  {{ editingUser() ? 'Enregistrer' : 'Créer' }}
                 </button>
               </div>
             </form>

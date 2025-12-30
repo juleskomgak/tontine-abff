@@ -46,9 +46,13 @@
     }
     
     @if (authService.hasRole('admin', 'tresorier')) {
+      <button mat-button [routerLink]="['/cartes-codebaf']">
+        <mat-icon>card_membership</mat-icon>
+        <span>Cartes CODEBAF</span>
+      </button>
       <button mat-button [routerLink]="['/banque']">
         <mat-icon>account_balance</mat-icon>
-        <span>Banque</span>
+        <span>Banque centrale</span>
       </button>
     }
     

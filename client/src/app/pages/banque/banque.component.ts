@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -7,6 +8,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatSelectModule } from '@angular/material/select';
@@ -15,14 +17,17 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { BanqueService } from '../../services/banque.service';
 import { TontineService } from '../../services/tontine.service';
+import { CarteCodebafService } from '../../services/carte-codebaf.service';
+import { SolidariteService } from '../../services/solidarite.service';
 import { AuthService } from '../../services/auth.service';
-import { BanqueTontine, Tontine, Transaction, TourRefuse, Member } from '../../models';
+import { BanqueTontine, Tontine, Transaction, TourRefuse, Member, CarteCodebafStats } from '../../models';
 
 @Component({
   selector: 'app-banque',
   standalone: true,
   imports: [
     CommonModule,
+    RouterModule,
     MatCardModule,
     MatButtonModule,
     MatIconModule,
@@ -30,6 +35,7 @@ import { BanqueTontine, Tontine, Transaction, TourRefuse, Member } from '../../m
     MatTabsModule,
     MatChipsModule,
     MatProgressSpinnerModule,
+    MatProgressBarModule,
     MatDialogModule,
     MatSnackBarModule,
     MatSelectModule,
@@ -43,8 +49,8 @@ import { BanqueTontine, Tontine, Transaction, TourRefuse, Member } from '../../m
         <div class="header-left">
           <mat-icon class="page-icon">account_balance</mat-icon>
           <div>
-            <h1>🏦 Banque Tontine</h1>
-            <p class="subtitle">Gestion des fonds et redistribution</p>
+            <h1>🏦 Banque centrale</h1>
+            <p class="subtitle">Monitoring centralisé : Tontines, Solidarités et Cartes CODEBAF</p>
           </div>
         </div>
       </div>
@@ -54,385 +60,490 @@ import { BanqueTontine, Tontine, Transaction, TourRefuse, Member } from '../../m
         <mat-card-content>
           <div class="filters-row">
             <mat-form-field appearance="outline" class="filter-field">
-              <mat-label>Sélectionner une tontine</mat-label>
-              <mat-select [value]="selectedTontineId()" (selectionChange)="onTontineChange($event.value)">
-                @for (tontine of tontines(); track tontine._id) {
-                  <mat-option [value]="tontine._id">{{ tontine.nom }}</mat-option>
-                }
+              <mat-label>Vue</mat-label>
+              <mat-select [value]="selectedView()" (selectionChange)="onViewChange($event.value)">
+                <mat-option value="tontine">Tontine</mat-option>
+                <mat-option value="solidarite">Solidarités</mat-option>
+                <mat-option value="cartes">Cartes CODEBAF</mat-option>
               </mat-select>
             </mat-form-field>
 
-            @if (availableCycles().length > 0) {
-              <mat-form-field appearance="outline" class="filter-field">
-                <mat-label>Filtrer par cycle</mat-label>
-                <mat-select [value]="selectedCycle()" (selectionChange)="selectedCycle.set($event.value)">
-                  <mat-option value="all">Tous les cycles</mat-option>
-                  @for (cycle of availableCycles(); track cycle) {
-                    <mat-option [value]="cycle">Cycle {{ cycle }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
-            }
+            <mat-form-field appearance="outline" class="filter-field" *ngIf="selectedView() === 'tontine'">
+              <mat-label>Sélectionner une tontine</mat-label>
+              <mat-select [value]="selectedTontineId()" (selectionChange)="onTontineChange($event.value)">
+                <mat-option *ngFor="let tontine of tontines()" [value]="tontine._id">{{ tontine.nom }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="filter-field" *ngIf="availableCycles().length > 0 && selectedView() === 'tontine'">
+              <mat-label>Filtrer par cycle</mat-label>
+              <mat-select [value]="selectedCycle()" (selectionChange)="selectedCycle.set($event.value)">
+                <mat-option value="all">Tous les cycles</mat-option>
+                <mat-option *ngFor="let cycle of availableCycles()" [value]="cycle">Cycle {{ cycle }}</mat-option>
+              </mat-select>
+            </mat-form-field>
           </div>
         </mat-card-content>
       </mat-card>
 
+      <!-- Main content -->
       @if (loading()) {
         <div class="loading-container">
           <mat-progress-spinner mode="indeterminate" diameter="50"></mat-progress-spinner>
           <p>Chargement...</p>
         </div>
-      } @else if (selectedTontineId() && banque()) {
-        <!-- Statistiques -->
-        <div class="stats-grid">
-          <mat-card class="stat-card solde">
-            <mat-icon class="stat-icon">account_balance_wallet</mat-icon>
-            <div class="stat-content">
-              <h3>{{ banque()!.soldeTotal | number:'1.0-0' }} FCFA</h3>
-              <p>Solde Total</p>
-            </div>
-          </mat-card>
+      } @else {
 
-          <mat-card class="stat-card cotisations">
-            <mat-icon class="stat-icon">savings</mat-icon>
-            <div class="stat-content">
-              <h3>{{ banque()!.soldeCotisations | number:'1.0-0' }} FCFA</h3>
-              <p>Solde Cotisations</p>
-            </div>
-          </mat-card>
+        @if (selectedView() === 'tontine') {
+          @if (selectedTontineId() && banque()) {
+            <!-- Statistiques -->
+            <div class="stats-grid">
+              <mat-card class="stat-card solde">
+                <mat-icon class="stat-icon">account_balance_wallet</mat-icon>
+                <div class="stat-content">
+                  <h3>{{ banque()!.soldeTotal | number:'1.0-0' }} FCFA</h3>
+                  <p>Solde Total</p>
+                </div>
+              </mat-card>
 
-          <mat-card class="stat-card refus clickable" (click)="showFondsRefusesDetails.set(!showFondsRefusesDetails())">
-            <mat-icon class="stat-icon">money_off</mat-icon>
-            <div class="stat-content">
-              <h3>{{ banque()!.soldeRefus | number:'1.0-0' }} FCFA</h3>
-              <p>Fonds Refusés</p>
-            </div>
-            <button mat-icon-button class="expand-button" [matTooltip]="showFondsRefusesDetails() ? 'Masquer les détails' : 'Voir les détails'">
-              <mat-icon>{{ showFondsRefusesDetails() ? 'expand_less' : 'expand_more' }}</mat-icon>
-            </button>
-          </mat-card>
+              <mat-card class="stat-card cotisations">
+                <mat-icon class="stat-icon">savings</mat-icon>
+                <div class="stat-content">
+                  <h3>{{ banque()!.soldeCotisations | number:'1.0-0' }} FCFA</h3>
+                  <p>Solde Cotisations</p>
+                </div>
+              </mat-card>
 
-          <mat-card class="stat-card total">
-            <mat-icon class="stat-icon">trending_up</mat-icon>
-            <div class="stat-content">
-              <h3>{{ banque()!.totalCotise | number:'1.0-0' }} FCFA</h3>
-              <p>Total Cotisé</p>
-            </div>
-          </mat-card>
+              <mat-card class="stat-card refus clickable" (click)="showFondsRefusesDetails.set(!showFondsRefusesDetails())">
+                <mat-icon class="stat-icon">money_off</mat-icon>
+                <div class="stat-content">
+                  <h3>{{ banque()!.soldeRefus | number:'1.0-0' }} FCFA</h3>
+                  <p>Fonds Refusés</p>
+                </div>
+                <button mat-icon-button class="expand-button" [matTooltip]="showFondsRefusesDetails() ? 'Masquer les détails' : 'Voir les détails'">
+                  <mat-icon>{{ showFondsRefusesDetails() ? 'expand_less' : 'expand_more' }}</mat-icon>
+                </button>
+              </mat-card>
 
-          <mat-card class="stat-card distribue clickable" (click)="showDistribueDetails.set(!showDistribueDetails())">
-            <mat-icon class="stat-icon">payments</mat-icon>
-            <div class="stat-content">
-              <h3>{{ banque()!.totalDistribue | number:'1.0-0' }} FCFA</h3>
-              <p>Total Distribué</p>
-            </div>
-            <button mat-icon-button class="expand-button" [matTooltip]="showDistribueDetails() ? 'Masquer les détails' : 'Voir les détails'">
-              <mat-icon>{{ showDistribueDetails() ? 'expand_less' : 'expand_more' }}</mat-icon>
-            </button>
-          </mat-card>
+              <mat-card class="stat-card total">
+                <mat-icon class="stat-icon">trending_up</mat-icon>
+                <div class="stat-content">
+                  <h3>{{ banque()!.totalCotise | number:'1.0-0' }} FCFA</h3>
+                  <p>Total Cotisé</p>
+                </div>
+              </mat-card>
 
-          <mat-card class="stat-card tours-refus">
-            <mat-icon class="stat-icon">block</mat-icon>
-            <div class="stat-content">
-              <h3>{{ banque()!.toursRefuses.length }}</h3>
-              <p>Tours Refusés</p>
-            </div>
-          </mat-card>
-        </div>
+              <mat-card class="stat-card distribue clickable" (click)="showDistribueDetails.set(!showDistribueDetails())">
+                <mat-icon class="stat-icon">payments</mat-icon>
+                <div class="stat-content">
+                  <h3>{{ banque()!.totalDistribue | number:'1.0-0' }} FCFA</h3>
+                  <p>Total Distribué</p>
+                </div>
+                <button mat-icon-button class="expand-button" [matTooltip]="showDistribueDetails() ? 'Masquer les détails' : 'Voir les détails'">
+                  <mat-icon>{{ showDistribueDetails() ? 'expand_less' : 'expand_more' }}</mat-icon>
+                </button>
+              </mat-card>
 
-        <!-- Détails Total Distribué -->
-        @if (showDistribueDetails() && toursPayes().length > 0) {
-          <mat-card class="details-card distribue-details">
-            <div class="details-header">
-              <div class="header-title">
-                <mat-icon>payments</mat-icon>
-                <h3>Détails du Total Distribué</h3>
-              </div>
-              <button mat-icon-button (click)="showDistribueDetails.set(false); $event.stopPropagation()">
-                <mat-icon>close</mat-icon>
-              </button>
+              <mat-card class="stat-card tours-refus">
+                <mat-icon class="stat-icon">block</mat-icon>
+                <div class="stat-content">
+                  <h3>{{ banque()!.toursRefuses.length }}</h3>
+                  <p>Tours Refusés</p>
+                </div>
+              </mat-card>
             </div>
-            <div class="details-content">
-              <div class="summary-row">
-                <span class="label">Nombre de tours payés:</span>
-                <span class="value">{{ toursPayes().length }}</span>
-              </div>
-              <div class="summary-row">
-                <span class="label">Montant total distribué:</span>
-                <span class="value highlight">{{ banque()!.totalDistribue | number:'1.0-0' }} FCFA</span>
-              </div>
-              <div class="summary-row">
-                <span class="label">Montant moyen par tour:</span>
-                <span class="value">{{ (banque()!.totalDistribue / toursPayes().length) | number:'1.0-0' }} FCFA</span>
-              </div>
-              
-              <div class="divider"></div>
-              
-              <h4>Liste des tours payés</h4>
-              <div class="tours-list">
-                @for (tour of toursPayes(); track tour._id) {
-                  <div class="tour-item">
-                    <div class="tour-info">
-                      <mat-icon class="tour-icon">check_circle</mat-icon>
-                      <div class="tour-details">
-                        <span class="tour-number">Tour {{ tour.numeroTour }}</span>
-                        <span class="beneficiaire">{{ getMemberName(tour.beneficiaire) }}</span>
-                        <span class="date">{{ formatDate(tour.dateReceptionPrevue) }}</span>
-                      </div>
-                    </div>
-                    <span class="montant-tour">{{ tour.montantRecu | number:'1.0-0' }} FCFA</span>
+
+            <!-- Détails Total Distribué -->
+            @if (showDistribueDetails() && toursPayes().length > 0) {
+              <mat-card class="details-card distribue-details">
+                <div class="details-header">
+                  <div class="header-title">
+                    <mat-icon>payments</mat-icon>
+                    <h3>Détails du Total Distribué</h3>
                   </div>
-                }
-              </div>
-            </div>
-          </mat-card>
-        }
-
-        <!-- Détails Fonds Refusés -->
-        @if (showFondsRefusesDetails() && banque()!.toursRefuses.length > 0) {
-          <mat-card class="details-card refus-details">
-            <div class="details-header">
-              <div class="header-title">
-                <mat-icon>money_off</mat-icon>
-                <h3>Détails des Fonds Refusés</h3>
-              </div>
-              <button mat-icon-button (click)="showFondsRefusesDetails.set(false); $event.stopPropagation()">
-                <mat-icon>close</mat-icon>
-              </button>
-            </div>
-            <div class="details-content">
-              <div class="summary-row">
-                <span class="label">Nombre de tours refusés:</span>
-                <span class="value">{{ banque()!.toursRefuses.length }}</span>
-              </div>
-              <div class="summary-row">
-                <span class="label">Montant total refusé:</span>
-                <span class="value highlight">{{ banque()!.soldeRefus | number:'1.0-0' }} FCFA</span>
-              </div>
-              <div class="summary-row">
-                <span class="label">Montant moyen par refus:</span>
-                <span class="value">{{ (banque()!.soldeRefus / banque()!.toursRefuses.length) | number:'1.0-0' }} FCFA</span>
-              </div>
-              <div class="summary-row">
-                <span class="label">Statut redistribution:</span>
-                <span class="value" [ngClass]="banque()!.redistribue ? 'status-done' : 'status-pending'">
-                  {{ banque()!.redistribue ? '✓ Redistribué' : '⏳ En attente' }}
-                </span>
-              </div>
-              
-              <div class="divider"></div>
-              
-              <h4>Liste des tours refusés</h4>
-              <div class="refus-items">
-                @for (refus of banque()!.toursRefuses; track refus.tour) {
-                  <div class="refus-item-detail">
-                    <div class="refus-info">
-                      <mat-icon class="refus-icon">block</mat-icon>
-                      <div class="refus-details-content">
-                        <div class="refus-main">
-                          <span class="beneficiaire-refus">{{ getMemberName(refus.beneficiaire) }}</span>
-                          <span class="cycle-info">Cycle {{ refus.cycle }}</span>
-                        </div>
-                        <span class="date-refus">{{ formatDate(refus.dateRefus) }}</span>
-                        @if (refus.raison) {
-                          <span class="raison">{{ refus.raison }}</span>
-                        }
-                      </div>
-                    </div>
-                    <span class="montant-refus-detail">{{ refus.montant | number:'1.0-0' }} FCFA</span>
-                  </div>
-                }
-              </div>
-
-              @if (!banque()!.redistribue && authService.hasRole('admin')) {
-                <div class="action-section">
-                  <button mat-raised-button color="accent" (click)="openRedistributionDialog()">
-                    <mat-icon>share</mat-icon>
-                    Redistribuer les fonds ({{ banque()!.soldeRefus | number:'1.0-0' }} FCFA)
+                  <button mat-icon-button (click)="showDistribueDetails.set(false); $event.stopPropagation()">
+                    <mat-icon>close</mat-icon>
                   </button>
                 </div>
-              }
-            </div>
-          </mat-card>
-        }
-
-        <!-- Onglets -->
-        <mat-tab-group>
-          <!-- Transactions -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <span class="tab-label-bold">Transactions ({{ filteredTransactions().length }})</span>
-            </ng-template>
-            <mat-card class="tab-content">
-              @if (filteredTransactions().length === 0) {
-                <div class="empty-state">
-                  <mat-icon>receipt_long</mat-icon>
-                  <h3>Aucune transaction</h3>
-                  <p>Les transactions apparaîtront ici</p>
-                </div>
-              } @else {
-                <div class="table-container">
-                  <table mat-table [dataSource]="filteredTransactions()" class="transactions-table">
-                    <ng-container matColumnDef="date">
-                      <th mat-header-cell *matHeaderCellDef>Date</th>
-                      <td mat-cell *matCellDef="let transaction">
-                        {{ formatDate(transaction.date) }}
-                      </td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="type">
-                      <th mat-header-cell *matHeaderCellDef>Type</th>
-                      <td mat-cell *matCellDef="let transaction">
-                        <span class="type-chip" [ngClass]="'type-' + transaction.type">
-                          {{ getTypeLabel(transaction.type) }}
-                        </span>
-                      </td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="cycle">
-                      <th mat-header-cell *matHeaderCellDef>Cycle</th>
-                      <td mat-cell *matCellDef="let transaction">
-                        <span class="cycle-badge">{{ getCycleNumber(transaction) }}</span>
-                      </td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="description">
-                      <th mat-header-cell *matHeaderCellDef>Description</th>
-                      <td mat-cell *matCellDef="let transaction">
-                        {{ transaction.description || '-' }}
-                      </td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="montant">
-                      <th mat-header-cell *matHeaderCellDef>Montant</th>
-                      <td mat-cell *matCellDef="let transaction">
-                        <span [ngClass]="transaction.montant >= 0 ? 'montant-positif' : 'montant-negatif'">
-                          {{ transaction.montant >= 0 ? '+' : '' }}{{ transaction.montant | number:'1.0-0' }} FCFA
-                        </span>
-                      </td>
-                    </ng-container>
-
-                    <ng-container matColumnDef="effectuePar">
-                      <th mat-header-cell *matHeaderCellDef>Effectué par</th>
-                      <td mat-cell *matCellDef="let transaction">
-                        {{ getUserName(transaction.effectuePar) }}
-                      </td>
-                    </ng-container>
-
-                    <tr mat-header-row *matHeaderRowDef="transactionColumns"></tr>
-                    <tr mat-row *matRowDef="let row; columns: transactionColumns;"></tr>
-                  </table>
-                </div>
-              }
-            </mat-card>
-          </mat-tab>
-
-          <!-- Tours Refusés -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <span class="tab-label-bold">Tours Refusés ({{ banque()!.toursRefuses.length }})</span>
-            </ng-template>
-            <mat-card class="tab-content">
-              @if (banque()!.toursRefuses.length === 0) {
-                <div class="empty-state">
-                  <mat-icon>check_circle</mat-icon>
-                  <h3>Aucun tour refusé</h3>
-                  <p>Tous les membres ont accepté leurs tours</p>
-                </div>
-              } @else {
-                <div class="refus-list">
-                  @for (refus of banque()!.toursRefuses; track refus.tour) {
-                    <mat-expansion-panel>
-                      <mat-expansion-panel-header>
-                        <mat-panel-title>
-                          <div class="refus-header">
-                            <mat-icon>block</mat-icon>
-                            <span class="beneficiaire-name">{{ getMemberName(refus.beneficiaire) }}</span>
-                            <span class="montant-refus">{{ refus.montant | number:'1.0-0' }} FCFA</span>
-                          </div>
-                        </mat-panel-title>
-                        <mat-panel-description>
-                          <span class="cycle-badge">Cycle {{ refus.cycle }}</span>
-                          <span class="date-refus">{{ formatDate(refus.dateRefus) }}</span>
-                        </mat-panel-description>
-                      </mat-expansion-panel-header>
-
-                      <div class="refus-details">
-                        @if (refus.raison) {
-                          <div class="detail-row">
-                            <mat-icon>info</mat-icon>
-                            <span><strong>Raison:</strong> {{ refus.raison }}</span>
-                          </div>
-                        }
-                        <div class="detail-row">
-                          <mat-icon>calendar_today</mat-icon>
-                          <span><strong>Date du refus:</strong> {{ formatDate(refus.dateRefus) }}</span>
-                        </div>
-                      </div>
-                    </mat-expansion-panel>
-                  }
-                </div>
-
-                @if (!banque()!.redistribue && authService.hasRole('admin')) {
-                  <div class="redistribution-section">
-                    <button mat-raised-button color="primary" (click)="openRedistributionDialog()">
-                      <mat-icon>share</mat-icon>
-                      Redistribuer les fonds ({{ banque()!.soldeRefus | number:'1.0-0' }} FCFA)
-                    </button>
+                <div class="details-content">
+                  <div class="summary-row">
+                    <span class="label">Nombre de tours payés:</span>
+                    <span class="value">{{ toursPayes().length }}</span>
                   </div>
-                }
-              }
-            </mat-card>
-          </mat-tab>
-
-          <!-- Redistribution -->
-          <mat-tab>
-            <ng-template mat-tab-label>
-              <span class="tab-label-bold">Redistribution</span>
-            </ng-template>
-            <mat-card class="tab-content">
-              @if (!banque()!.redistribue) {
-                <div class="empty-state">
-                  <mat-icon>pending_actions</mat-icon>
-                  <h3>Redistribution en attente</h3>
-                  <p>Les fonds refusés n'ont pas encore été redistribués</p>
-                  @if (banque()!.soldeRefus > 0 && authService.hasRole('admin')) {
-                    <button mat-raised-button color="primary" (click)="openRedistributionDialog()">
-                      <mat-icon>share</mat-icon>
-                      Redistribuer {{ banque()!.soldeRefus | number:'1.0-0' }} FCFA
-                    </button>
-                  }
-                </div>
-              } @else {
-                <div class="redistribution-info">
-                  <div class="info-header">
-                    <mat-icon class="success-icon">check_circle</mat-icon>
-                    <h3>Redistribution effectuée</h3>
-                    <p>{{ formatDate(banque()!.dateRedistribution!) }}</p>
+                  <div class="summary-row">
+                    <span class="label">Montant total distribué:</span>
+                    <span class="value highlight">{{ banque()!.totalDistribue | number:'1.0-0' }} FCFA</span>
                   </div>
-
-                  <div class="beneficiaires-list">
-                    @for (beneficiaire of banque()!.beneficiairesRedistribution; track beneficiaire.membre) {
-                      <div class="beneficiaire-item">
-                        <div class="beneficiaire-info">
-                          <mat-icon>person</mat-icon>
-                          <span>{{ getMemberName(beneficiaire.membre) }}</span>
+                  <div class="summary-row">
+                    <span class="label">Montant moyen par tour:</span>
+                    <span class="value">{{ (banque()!.totalDistribue / toursPayes().length) | number:'1.0-0' }} FCFA</span>
+                  </div>
+                  <div class="divider"></div>
+                  <h4>Liste des tours payés</h4>
+                  <div class="tours-list">
+                    @for (tour of toursPayes(); track tour._id) {
+                      <div class="tour-item">
+                        <div class="tour-info">
+                          <mat-icon class="tour-icon">check_circle</mat-icon>
+                          <div class="tour-details">
+                            <span class="tour-number">Tour {{ tour.numeroTour }}</span>
+                            <span class="beneficiaire">{{ getMemberName(tour.beneficiaire) }}</span>
+                            <span class="date">{{ formatDate(tour.dateReceptionPrevue) }}</span>
+                          </div>
                         </div>
-                        <span class="montant-redistribue">{{ beneficiaire.montant | number:'1.0-0' }} FCFA</span>
+                        <span class="montant-tour">{{ tour.montantRecu | number:'1.0-0' }} FCFA</span>
                       </div>
                     }
                   </div>
                 </div>
-              }
+              </mat-card>
+            }
+
+            <!-- Détails Fonds Refusés -->
+            @if (showFondsRefusesDetails() && banque()!.toursRefuses.length > 0) {
+              <mat-card class="details-card refus-details">
+                <div class="details-header">
+                  <div class="header-title">
+                    <mat-icon>money_off</mat-icon>
+                    <h3>Détails des Fonds Refusés</h3>
+                  </div>
+                  <button mat-icon-button (click)="showFondsRefusesDetails.set(false); $event.stopPropagation()">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+                <div class="details-content">
+                  <div class="summary-row">
+                    <span class="label">Nombre de tours refusés:</span>
+                    <span class="value">{{ banque()!.toursRefuses.length }}</span>
+                  </div>
+                  <div class="summary-row">
+                    <span class="label">Montant total refusé:</span>
+                    <span class="value highlight">{{ banque()!.soldeRefus | number:'1.0-0' }} FCFA</span>
+                  </div>
+                  <div class="summary-row">
+                    <span class="label">Montant moyen par refus:</span>
+                    <span class="value">{{ (banque()!.soldeRefus / banque()!.toursRefuses.length) | number:'1.0-0' }} FCFA</span>
+                  </div>
+                  <div class="summary-row">
+                    <span class="label">Statut redistribution:</span>
+                    <span class="value" [ngClass]="banque()!.redistribue ? 'status-done' : 'status-pending'">
+                      {{ banque()!.redistribue ? '✓ Redistribué' : '⏳ En attente' }}
+                    </span>
+                  </div>
+                  <div class="divider"></div>
+                  <h4>Liste des tours refusés</h4>
+                  <div class="refus-items">
+                    @for (refus of banque()!.toursRefuses; track refus.tour) {
+                      <div class="refus-item-detail">
+                        <div class="refus-info">
+                          <mat-icon class="refus-icon">block</mat-icon>
+                          <div class="refus-details-content">
+                            <div class="refus-main">
+                              <span class="beneficiaire-refus">{{ getMemberName(refus.beneficiaire) }}</span>
+                              <span class="cycle-info">Cycle {{ refus.cycle }}</span>
+                            </div>
+                            <span class="date-refus">{{ formatDate(refus.dateRefus) }}</span>
+                            @if (refus.raison) {
+                              <span class="raison">{{ refus.raison }}</span>
+                            }
+                          </div>
+                        </div>
+                        <span class="montant-refus-detail">{{ refus.montant | number:'1.0-0' }} FCFA</span>
+                      </div>
+                    }
+                  </div>
+
+                  @if (!banque()!.redistribue && authService.hasRole('admin')) {
+                    <div class="action-section">
+                      <button mat-raised-button color="accent" (click)="openRedistributionDialog()">
+                        <mat-icon>share</mat-icon>
+                        Redistribuer les fonds ({{ banque()!.soldeRefus | number:'1.0-0' }} FCFA)
+                      </button>
+                    </div>
+                  }
+                </div>
+              </mat-card>
+            }
+
+            <!-- Onglets -->
+            <mat-tab-group>
+              <!-- Transactions -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <span class="tab-label-bold">Transactions ({{ filteredTransactions().length }})</span>
+                </ng-template>
+                <mat-card class="tab-content">
+                  @if (filteredTransactions().length === 0) {
+                    <div class="empty-state">
+                      <mat-icon>receipt_long</mat-icon>
+                      <h3>Aucune transaction</h3>
+                      <p>Les transactions apparaîtront ici</p>
+                    </div>
+                  } @else {
+                    <div class="table-container">
+                      <table mat-table [dataSource]="filteredTransactions()" class="transactions-table">
+                        <ng-container matColumnDef="date">
+                          <th mat-header-cell *matHeaderCellDef>Date</th>
+                          <td mat-cell *matCellDef="let transaction">{{ formatDate(transaction.date) }}</td>
+                        </ng-container>
+                        <ng-container matColumnDef="type">
+                          <th mat-header-cell *matHeaderCellDef>Type</th>
+                          <td mat-cell *matCellDef="let transaction">
+                            <span class="type-chip" [ngClass]="'type-' + transaction.type">{{ getTypeLabel(transaction.type) }}</span>
+                          </td>
+                        </ng-container>
+                        <ng-container matColumnDef="cycle">
+                          <th mat-header-cell *matHeaderCellDef>Cycle</th>
+                          <td mat-cell *matCellDef="let transaction"><span class="cycle-badge">{{ getCycleNumber(transaction) }}</span></td>
+                        </ng-container>
+                        <ng-container matColumnDef="description">
+                          <th mat-header-cell *matHeaderCellDef>Description</th>
+                          <td mat-cell *matCellDef="let transaction">{{ transaction.description || '-' }}</td>
+                        </ng-container>
+                        <ng-container matColumnDef="montant">
+                          <th mat-header-cell *matHeaderCellDef>Montant</th>
+                          <td mat-cell *matCellDef="let transaction">
+                            <span [ngClass]="transaction.montant >= 0 ? 'montant-positif' : 'montant-negatif'">{{ transaction.montant >= 0 ? '+' : '' }}{{ transaction.montant | number:'1.0-0' }} FCFA</span>
+                          </td>
+                        </ng-container>
+                        <ng-container matColumnDef="effectuePar">
+                          <th mat-header-cell *matHeaderCellDef>Effectué par</th>
+                          <td mat-cell *matCellDef="let transaction">{{ getUserName(transaction.effectuePar) }}</td>
+                        </ng-container>
+
+                        <tr mat-header-row *matHeaderRowDef="transactionColumns"></tr>
+                        <tr mat-row *matRowDef="let row; columns: transactionColumns;"></tr>
+                      </table>
+                    </div>
+                  }
+                </mat-card>
+              </mat-tab>
+
+              <!-- Tours Refusés -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <span class="tab-label-bold">Tours Refusés ({{ banque()!.toursRefuses.length }})</span>
+                </ng-template>
+                <mat-card class="tab-content">
+                  @if (banque()!.toursRefuses.length === 0) {
+                    <div class="empty-state">
+                      <mat-icon>check_circle</mat-icon>
+                      <h3>Aucun tour refusé</h3>
+                      <p>Tous les membres ont accepté leurs tours</p>
+                    </div>
+                  } @else {
+                    <div class="refus-list">
+                      @for (refus of banque()!.toursRefuses; track refus.tour) {
+                        <mat-expansion-panel>
+                          <mat-expansion-panel-header>
+                            <mat-panel-title>
+                              <div class="refus-header">
+                                <mat-icon>block</mat-icon>
+                                <span class="beneficiaire-name">{{ getMemberName(refus.beneficiaire) }}</span>
+                                <span class="montant-refus">{{ refus.montant | number:'1.0-0' }} FCFA</span>
+                              </div>
+                            </mat-panel-title>
+                            <mat-panel-description>
+                              <span class="cycle-badge">Cycle {{ refus.cycle }}</span>
+                              <span class="date-refus">{{ formatDate(refus.dateRefus) }}</span>
+                            </mat-panel-description>
+                          </mat-expansion-panel-header>
+
+                          <div class="refus-details">
+                            @if (refus.raison) {
+                              <div class="detail-row">
+                                <mat-icon>info</mat-icon>
+                                <span><strong>Raison:</strong> {{ refus.raison }}</span>
+                              </div>
+                            }
+                            <div class="detail-row">
+                              <mat-icon>calendar_today</mat-icon>
+                              <span><strong>Date du refus:</strong> {{ formatDate(refus.dateRefus) }}</span>
+                            </div>
+                          </div>
+                        </mat-expansion-panel>
+                      }
+                    </div>
+
+                    @if (!banque()!.redistribue && authService.hasRole('admin')) {
+                      <div class="redistribution-section">
+                        <button mat-raised-button color="primary" (click)="openRedistributionDialog()">
+                          <mat-icon>share</mat-icon>
+                          Redistribuer les fonds ({{ banque()!.soldeRefus | number:'1.0-0' }} FCFA)
+                        </button>
+                      </div>
+                    }
+                  }
+                </mat-card>
+              </mat-tab>
+
+              <!-- Redistribution -->
+              <mat-tab>
+                <ng-template mat-tab-label>
+                  <span class="tab-label-bold">Redistribution</span>
+                </ng-template>
+                <mat-card class="tab-content">
+                  @if (!banque()!.redistribue) {
+                    <div class="empty-state">
+                      <mat-icon>pending_actions</mat-icon>
+                      <h3>Redistribution en attente</h3>
+                      <p>Les fonds refusés n'ont pas encore été redistribués</p>
+                      @if (banque()!.soldeRefus > 0 && authService.hasRole('admin')) {
+                        <button mat-raised-button color="primary" (click)="openRedistributionDialog()">
+                          <mat-icon>share</mat-icon>
+                          Redistribuer {{ banque()!.soldeRefus | number:'1.0-0' }} FCFA
+                        </button>
+                      }
+                    </div>
+                  } @else {
+                    <div class="redistribution-info">
+                      <div class="info-header">
+                        <mat-icon class="success-icon">check_circle</mat-icon>
+                        <h3>Redistribution effectuée</h3>
+                        <p>{{ formatDate(banque()!.dateRedistribution!) }}</p>
+                      </div>
+
+                      <div class="beneficiaires-list">
+                        @for (beneficiaire of banque()!.beneficiairesRedistribution; track beneficiaire.membre) {
+                          <div class="beneficiaire-item">
+                            <div class="beneficiaire-info">
+                              <mat-icon>person</mat-icon>
+                              <span>{{ getMemberName(beneficiaire.membre) }}</span>
+                            </div>
+                            <span class="montant-redistribue">{{ beneficiaire.montant | number:'1.0-0' }} FCFA</span>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
+                </mat-card>
+              </mat-tab>
+            </mat-tab-group>
+          } @else {
+            <mat-card>
+              <div class="empty-state">
+                <mat-icon>info</mat-icon>
+                <h3>Sélectionnez une tontine</h3>
+                <p>Aucune tontine sélectionnée ou données indisponibles.</p>
+              </div>
             </mat-card>
-          </mat-tab>
-        </mat-tab-group>
-      } @else if (selectedTontineId()) {
-        <div class="empty-state">
-          <mat-icon>account_balance</mat-icon>
-          <h3>Banque non trouvée</h3>
-          <p>Aucune donnée bancaire pour cette tontine</p>
-        </div>
+          }
+
+        }
+
+        @else if (selectedView() === 'solidarite') {
+          <mat-card class="tab-content solidarites-tab">
+            @if (loadingSolidarites()) {
+              <div class="loading-container small"><mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner></div>
+            } @else {
+              @if (stats()) {
+                <div class="stats-grid">
+                  <mat-card class="stat-card total-card">
+                    <mat-icon class="stat-icon">account_balance_wallet</mat-icon>
+                    <div class="stat-content">
+                      <h3>{{ stats()!.totalGlobal.totalCollecte | number:'1.0-0' }} FCFA</h3>
+                      <p>Total Collecté</p>
+                      <span class="stat-badge">{{ stats()!.totalGlobal.tauxCollecte }}% collecté</span>
+                    </div>
+                  </mat-card>
+
+                  @for (entry of statsEntries(); track entry.key) {
+                    <mat-card class="stat-card" [ngClass]="'type-' + entry.key">
+                      <mat-icon class="stat-icon">payments</mat-icon>
+                      <div class="stat-content">
+                        <h3>{{ entry.value.totalCollecte | number:'1.0-0' }} FCFA</h3>
+                        <p>{{ entry.value.libelle }}</p>
+                        <mat-progress-bar mode="determinate" [value]="entry.value.tauxCollecte"></mat-progress-bar>
+                        <span class="progress-label">{{ entry.value.tauxCollecte }}%</span>
+                      </div>
+                    </mat-card>
+                  }
+                </div>
+
+                <div class="summary-chips">
+                  <mat-chip-set>
+                    <mat-chip color="primary" highlighted>
+                      <mat-icon>people</mat-icon>
+                      {{ stats()!.totalMembres }} membres
+                    </mat-chip>
+                    <mat-chip class="chip-success">
+                      <mat-icon>check_circle</mat-icon>
+                      {{ membresAJour().length }} à jour
+                    </mat-chip>
+                    <mat-chip class="chip-danger">
+                      <mat-icon>warning</mat-icon>
+                      {{ membresEnRetard().length }} en retard
+                    </mat-chip>
+                  </mat-chip-set>
+                </div>
+              } @else {
+                <div class="empty-state">
+                  <mat-icon>inbox</mat-icon>
+                  <p>Aucune statistique disponible</p>
+                </div>
+              }
+            }
+          </mat-card>
+
+        } @else {
+          <!-- Cartes view -->
+          <mat-card class="tab-content codebaf-tab">
+            @if (loadingCartes()) {
+              <div class="loading-container small">
+                <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
+              </div>
+            } @else {
+              <div class="codebaf-summary">
+                <div class="codebaf-header">
+                  <h3>💳 Fonds des Cartes de Développement CODEBAF</h3>
+                  <button mat-raised-button color="primary" routerLink="/cartes-codebaf">
+                    <mat-icon>open_in_new</mat-icon>
+                    Gérer les cartes
+                  </button>
+                </div>
+
+                <div class="codebaf-stats-grid">
+                  <div class="codebaf-stat total">
+                    <mat-icon>credit_card</mat-icon>
+                    <div class="stat-info">
+                      <span class="stat-value">{{ cartesStats()?.global?.totalCartes || 0 }}</span>
+                      <span class="stat-label">Total Cartes</span>
+                    </div>
+                  </div>
+                  <div class="codebaf-stat attendu">
+                    <mat-icon>account_balance_wallet</mat-icon>
+                    <div class="stat-info">
+                      <span class="stat-value">{{ (cartesStats()?.global?.totalMontantAttendu || 0) | number:'1.0-0' }}</span>
+                      <span class="stat-label">Montant Attendu (FCFA)</span>
+                    </div>
+                  </div>
+                  <div class="codebaf-stat paye">
+                    <mat-icon>payments</mat-icon>
+                    <div class="stat-info">
+                      <span class="stat-value">{{ (cartesStats()?.global?.totalMontantPaye || 0) | number:'1.0-0' }}</span>
+                      <span class="stat-label">Montant Encaissé (FCFA)</span>
+                    </div>
+                  </div>
+                  <div class="codebaf-stat restant">
+                    <mat-icon>pending</mat-icon>
+                    <div class="stat-info">
+                      <span class="stat-value">{{ (cartesStats()?.global?.totalMontantRestant || 0) | number:'1.0-0' }}</span>
+                      <span class="stat-label">Montant Restant (FCFA)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="codebaf-progress-section">
+                  <div class="progress-header">
+                    <span>Taux de recouvrement</span>
+                    <span class="taux">{{ cartesStats()?.global?.tauxRecouvrement || 0 }}%</span>
+                  </div>
+                  <mat-progress-bar mode="determinate" [value]="parseFloat(cartesStats()?.global?.tauxRecouvrement || '0')"></mat-progress-bar>
+                </div>
+              </div>
+            }
+          </mat-card>
+        }
       }
     </div>
   `,
@@ -694,9 +805,112 @@ import { BanqueTontine, Tontine, Transaction, TourRefuse, Member } from '../../m
     .cycle-info { background: #fecaca; color: #991b1b; padding: 2px 8px; border-radius: 8px; font-size: 12px; font-weight: 600; }
     .raison { font-size: 14px; font-style: italic; margin-top: 4px; color: #475569; }
     .montant-refus-detail { font-weight: 700; font-size: 16px; color: #ef4444; font-family: monospace; }
+
+    /* Styles Cartes CODEBAF */
+    .codebaf-tab { padding: 0 !important; }
+    .codebaf-summary { padding: 24px; }
+    .codebaf-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+    .codebaf-header h3 { margin: 0; font-size: 20px; font-weight: 700; color: #0f172a; }
+
+    .codebaf-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .codebaf-stat { display: flex; align-items: center; gap: 12px; padding: 16px; border-radius: 12px; background: #f9fafb; border-left: 4px solid; }
+    .codebaf-stat.total { border-left-color: #8b5cf6; }
+    .codebaf-stat.attendu { border-left-color: #2563eb; }
+    .codebaf-stat.paye { border-left-color: #10b981; }
+    .codebaf-stat.restant { border-left-color: #f59e0b; }
+    .codebaf-stat mat-icon { font-size: 32px; width: 32px; height: 32px; color: #475569; }
+    .stat-info { display: flex; flex-direction: column; }
+    .stat-value { font-size: 20px; font-weight: 700; color: #0f172a; }
+    .stat-label { font-size: 12px; color: #6b7280; }
+
+    .codebaf-progress-section { margin-bottom: 24px; padding: 16px; background: #f0f9ff; border-radius: 12px; }
+    .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .progress-header span { font-weight: 500; color: #475569; }
+    .progress-header .taux { font-size: 24px; font-weight: 700; color: #2563eb; }
+    ::ng-deep .codebaf-progress-section .mat-mdc-progress-bar { height: 12px; border-radius: 6px; }
+    ::ng-deep .codebaf-progress-section .mdc-linear-progress__bar-inner { background-color: #10b981 !important; }
+
+    .types-section { margin-bottom: 24px; }
+    .types-section h4 { font-size: 16px; font-weight: 700; margin: 0 0 16px 0; color: #0f172a; }
+    .types-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .type-stat { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 8px; cursor: pointer; transition: transform 0.2s; }
+    .type-stat:hover { transform: translateY(-2px); }
+    .type-stat.type-classique { background: #f3f4f6; }
+    .type-stat.type-bronze { background: #fef3c7; }
+    .type-stat.type-silver { background: #e5e7eb; }
+    .type-stat.type-gold { background: #fef9c3; }
+    .type-emoji { font-size: 28px; }
+    .type-info { display: flex; flex-direction: column; gap: 2px; }
+    .type-name { font-weight: 600; color: #0f172a; font-size: 14px; }
+    .type-count { font-size: 12px; color: #6b7280; }
+    .type-montant { font-size: 11px; color: #475569; font-weight: 500; }
+
+    .derniers-paiements-section h4 { font-size: 16px; font-weight: 700; margin: 0 0 16px 0; color: #0f172a; }
+    .paiements-list { display: flex; flex-direction: column; gap: 8px; }
+    .paiement-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #f9fafb; border-radius: 8px; border-left: 4px solid #10b981; }
+    .paiement-left { display: flex; align-items: center; gap: 12px; }
+    .paiement-type-badge { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 18px; }
+    .paiement-type-badge.classique { background: #f3f4f6; }
+    .paiement-type-badge.bronze { background: #fef3c7; }
+    .paiement-type-badge.silver { background: #e5e7eb; }
+    .paiement-type-badge.gold { background: #fef9c3; }
+    .paiement-details { display: flex; flex-direction: column; gap: 2px; }
+    .paiement-membre { font-weight: 600; font-size: 14px; color: #0f172a; }
+    .paiement-date { font-size: 12px; color: #6b7280; }
+    .paiement-montant { font-weight: 700; font-family: monospace; font-size: 15px; }
+    .paiement-montant.success { color: #10b981; }
+    .loading-container.small { padding: 40px; }
+
+    /* Solidarite summary styling (match Solidarite page) */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { display: flex; align-items: center; padding: 20px; gap: 16px; }
+    .stat-icon { font-size: 40px; width: 40px; height: 40px; opacity: 0.8; }
+    .stat-content h3 { margin: 0; font-size: 24px; font-weight: 600; }
+    .stat-content p { margin: 4px 0; color: #64748b; font-size: 14px; }
+    .stat-badge { display: inline-block; padding: 4px 8px; border-radius: 12px; font-size: 12px; background: rgba(0,0,0,0.1); }
+    .total-card { background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); color: white; }
+    .total-card .stat-icon, .total-card .stat-content p { color: rgba(255,255,255,0.8); }
+    .total-card .stat-badge { background: rgba(255,255,255,0.2); }
+    .type-repas { border-left: 4px solid #10b981; }
+    .type-membre { border-left: 4px solid #f59e0b; }
+    .type-assurance_rapatriement { border-left: 4px solid #8b5cf6; }
+    mat-progress-bar { margin-top: 8px; border-radius: 4px; }
+    .progress-label { font-size: 12px; color: #64748b; }
+    .summary-chips { margin-bottom: 24px; }
+    .summary-chips mat-chip-set { display: flex; gap: 8px; }
+    .chip-success { background-color: #10b981 !important; color: white !important; }
+    .chip-danger { background-color: #ef4444 !important; color: white !important; }
+    .chip-neutral { background-color: #94a3b8 !important; color: white !important; }
+    .chip-small { font-size: 12px !important; min-height: 24px !important; padding: 0 8px !important; }
   `]
 })
 export class BanqueComponent implements OnInit {
+    private carteCodebafService = inject(CarteCodebafService);
+    cartesStats = signal<CarteCodebafStats | null>(null);
+    loadingCartes = signal(false);
+    selectedView = signal<'tontine'|'solidarite'|'cartes'>('tontine');
+  // Solidarites
+  solidarites = signal<any[] | null>(null);
+  loadingSolidarites = signal(false);
+  private solidariteService = inject(SolidariteService);
+  // Reuse service signals for detailed summary
+  stats = this.solidariteService.stats;
+  statuts = this.solidariteService.statuts;
+  configs = this.solidariteService.configs;
+
+  statsEntries = computed(() => {
+    const s = this.stats();
+    if (!s) return [];
+    return Object.entries(s.solidarites).map(([key, value]) => ({ key, value }));
+  });
+
+  membresAJour = computed(() => {
+    return this.statuts().filter((st: any) => Object.values(st.solidarites).every((sol: any) => sol.statut === 'a_jour'));
+  });
+
+  membresEnRetard = computed(() => {
+    return this.statuts().filter((st: any) => Object.values(st.solidarites).some((sol: any) => sol.statut === 'en_retard'));
+  });
   private banqueService = inject(BanqueService);
   private tontineService = inject(TontineService);
   authService = inject(AuthService);
@@ -760,6 +974,17 @@ export class BanqueComponent implements OnInit {
 
   ngOnInit() {
     this.loadTontines();
+    this.loadCartesStats();
+    this.loadSolidaritesStats();
+  }
+
+  onViewChange(view: 'tontine'|'solidarite'|'cartes') {
+    this.selectedView.set(view);
+    if (view === 'solidarite') {
+      this.loadSolidaritesStats();
+    } else if (view === 'cartes') {
+      this.loadCartesStats();
+    }
   }
 
   loadTontines() {
@@ -784,6 +1009,60 @@ export class BanqueComponent implements OnInit {
     this.selectedTontineId.set(tontineId);
     this.selectedCycle.set('all'); // Réinitialiser le filtre de cycle
     this.loadBanque(tontineId);
+    this.loadCartesStats();
+  }
+  loadCartesStats() {
+    this.loadingCartes.set(true);
+    this.carteCodebafService.getStatistiques().subscribe({
+      next: (response) => {
+        this.loadingCartes.set(false);
+        if (response.success && response.data) {
+          this.cartesStats.set(response.data);
+        }
+      },
+      error: (error) => {
+        this.loadingCartes.set(false);
+        this.cartesStats.set(null);
+      }
+    });
+  }
+
+  loadSolidaritesStats() {
+    this.loadingSolidarites.set(true);
+    // Load both stats and statuts so we can display the same summary as the Solidarite page
+    this.solidariteService.getStats().subscribe({
+      next: () => this.loadingSolidarites.set(false),
+      error: () => this.loadingSolidarites.set(false)
+    });
+
+    this.solidariteService.getStatuts().subscribe({
+      next: () => this.loadingSolidarites.set(false),
+      error: () => this.loadingSolidarites.set(false)
+    });
+  }
+
+  getTypeEmoji(type: string): string {
+    const emojis: { [key: string]: string } = {
+      'classique': '🏷️',
+      'bronze': '🥉',
+      'silver': '🥈',
+      'gold': '🥇'
+    };
+    return emojis[type] || '🏷️';
+  }
+
+  getTypeName(type: string): string {
+    const labels: { [key: string]: string } = {
+      'classique': 'Classique',
+      'bronze': 'Bronze',
+      'silver': 'Silver',
+      'gold': 'Gold'
+    };
+    return labels[type] || type;
+  }
+
+  parseFloat(val: string): number {
+    return Number.parseFloat(val);
   }
 
   loadBanque(tontineId: string) {

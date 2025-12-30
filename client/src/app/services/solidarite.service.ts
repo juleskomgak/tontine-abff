@@ -110,10 +110,7 @@ export interface MembreDetailStatut {
     };
   };
 }
-
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class SolidariteService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiUrl}/solidarites`;

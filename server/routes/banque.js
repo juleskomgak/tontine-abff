@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const BanqueCentrale = require('../models/BanqueCentrale');
+// Compatibility model: many routes still reference BanqueTontine
 const BanqueTontine = require('../models/BanqueTontine');
 const Tontine = require('../models/Tontine');
 const Tour = require('../models/Tour');
@@ -555,3 +557,49 @@ router.get('/', authorize('admin'), async (req, res) => {
 });
 
 module.exports = router;
+
+// @route   GET /api/banque/centrale/summary
+// @desc    Obtenir un résumé centralisé (tontines, solidarites, cartes)
+// @access  Private (Admin, Tresorier)
+router.get('/centrale/summary', authorize('admin', 'tresorier'), async (req, res) => {
+  try {
+    // Agréger les banques de tontine
+    const banques = await BanqueCentrale.find({ tontine: { $exists: true, $ne: null } });
+    const totalSolde = banques.reduce((sum, b) => sum + (b.soldeTotal || 0), 0);
+
+    // Solidarites stats (réutiliser le modèle PaiementSolidarite et Solidarite)
+    const PaiementSolidarite = require('../models/PaiementSolidarite');
+    const SolidariteConfig = require('../models/Solidarite');
+    const configs = await SolidariteConfig.find({ isActive: true });
+    const solidaritesSummary = [];
+    for (const config of configs) {
+      const paiements = await PaiementSolidarite.find({ typeSolidarite: config.nom, statut: 'paye' });
+      const totalCollecte = paiements.reduce((s, p) => s + (p.montant || 0), 0);
+      solidaritesSummary.push({ typeSolidarite: config.nom, libelle: config.libelle, totalCollecte, montantAttendu: config.montantAnnuel * (await Member.countDocuments({ isActive: true })) });
+    }
+
+    // Cartes CODEBAF summary
+    const CarteCodebaf = require('../models/CarteCodebaf');
+    const cartes = await CarteCodebaf.find();
+    const totalCartes = cartes.length;
+    const totalMontantAttendu = cartes.reduce((s, c) => s + (Number(c.montantTotal) || 0), 0);
+    const totalMontantPaye = cartes.reduce((s, c) => s + ((c.paiements || []).reduce((ss, p) => ss + Number(p.montant || 0), 0) || 0) + ((c.statut === 'complete' && (c.paiements || []).length === 0) ? Number(c.montantTotal || 0) : 0), 0);
+
+    res.json({
+      success: true,
+      data: {
+        totalSolde,
+        banquesCount: banques.length,
+        solidarites: solidaritesSummary,
+        cartes: {
+          totalCartes,
+          totalMontantAttendu,
+          totalMontantPaye
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Erreur centrale summary:', err);
+    res.status(500).json({ success: false, error: 'Erreur lors de la récupération du résumé central' });
+  }
+});

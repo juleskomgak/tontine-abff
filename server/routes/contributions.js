@@ -5,7 +5,7 @@ const Contribution = require('../models/Contribution');
 const Tontine = require('../models/Tontine');
 const Member = require('../models/Member');
 const Tour = require('../models/Tour');
-const BanqueTontine = require('../models/BanqueTontine');
+const BanqueCentrale = require('../models/BanqueCentrale');
 const { protect, authorize } = require('../middleware/auth');
 
 // Toutes les routes sont protégées

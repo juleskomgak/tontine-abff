@@ -181,6 +181,23 @@ export interface BanqueTontine {
   updatedAt?: Date;
 }
 
+// New generalized BanqueCentrale interface includes solidarites and cartes summary
+export interface BanqueCentrale extends BanqueTontine {
+  solidarites?: Array<{
+    typeSolidarite: string;
+    totalCollecte: number;
+    montantAttendu: number;
+  }>;
+  cartesCodebaf?: {
+    totalCartes: number;
+    totalMontantAttendu: number;
+    totalMontantPaye: number;
+  };
+}
+
+// Backward compatibility: alias BanqueTontine -> BanqueCentrale
+export type Banque = BanqueCentrale;
+
 export interface BanqueStats {
   soldeTotal: number;
   soldeCotisations: number;
@@ -192,4 +209,71 @@ export interface BanqueStats {
   redistribue: boolean;
   tauxDistribution: string;
   montantAttendu: number;
+}
+
+// Cartes CODEBAF
+export interface PaiementCarte {
+  _id: string;
+  montant: number;
+  datePaiement: Date;
+  methodePaiement: 'especes' | 'mobile_money' | 'virement' | 'cheque';
+  referenceTransaction?: string;
+  notes?: string;
+  enregistrePar: User | string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface CarteCodebaf {
+  _id: string;
+  membre: Member | string;
+  annee: number;
+  typeCarte: 'classique' | 'bronze' | 'silver' | 'gold';
+  montantTotal: number;
+  frequencePaiement: 'annuel' | 'trimestriel' | 'mensuel';
+  montantParEcheance: number;
+  nombreEcheances: number;
+  paiements: PaiementCarte[];
+  montantPaye: number;
+  montantRestant: number;
+  statut: 'en_cours' | 'complete' | 'annule';
+  dateDebut: Date;
+  dateFin: Date;
+  notes?: string;
+  createdBy: User | string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface CarteCodebafStats {
+  global: {
+    totalCartes: number;
+    totalMontantAttendu: number;
+    totalMontantPaye: number;
+    totalMontantRestant: number;
+    tauxRecouvrement: string;
+  };
+  parAnnee: Array<{
+    _id: number;
+    totalCartes: number;
+    totalMontantAttendu: number;
+    totalMontantPaye: number;
+    totalMontantRestant: number;
+  }>;
+  parType: Array<{
+    _id: string;
+    count: number;
+    totalMontant: number;
+    totalPaye: number;
+  }>;
+  derniersPaiements: Array<{
+    _id: string;
+    membre: Member;
+    typeCarte: string;
+    annee: number;
+    montant: number;
+    datePaiement: Date;
+    methodePaiement: string;
+    enregistrePar: User;
+  }>;
 }
