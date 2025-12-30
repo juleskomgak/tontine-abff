@@ -236,6 +236,7 @@ export interface CarteCodebaf {
   paiements: PaiementCarte[];
   montantPaye: number;
   montantRestant: number;
+  autoComputed?: boolean;
   statut: 'en_cours' | 'complete' | 'annule';
   dateDebut: Date;
   dateFin: Date;

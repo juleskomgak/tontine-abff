@@ -296,9 +296,8 @@ import { CarteCodebaf, CarteCodebafStats, Member, PaiementCarte } from '../../mo
                         {{ getTypeEmoji(carte.typeCarte) }} {{ carteService.getTypeCarteLabel(carte.typeCarte) }}
                       </div>
                       <div class="carte-annee">{{ carte.annee }}</div>
-                      <!-- Auto-complete badge: shown when statut is 'complete' but no payments were recorded -->
-                      <div *ngIf="carte.statut === 'complete' && (!carte.paiements || carte.paiements.length === 0)" class="auto-complete-badge" matBadge="Auto-complete" matBadgePosition="above after" matBadgeColor="primary" aria-hidden="false">
-                        
+                      <!-- Auto-complete badge: only when backend flagged this card as autoComputed -->
+                      <div *ngIf="carte.autoComputed" class="auto-complete-badge" matBadge="Auto-complete" matBadgePosition="above after" matBadgeColor="primary" aria-hidden="false">
                       </div>
                       <button mat-icon-button [matMenuTriggerFor]="carteMenu" *ngIf="authService.hasRole('admin') || authService.hasRole('tresorier')">
                         <mat-icon>more_vert</mat-icon>

@@ -12,8 +12,12 @@ function computeDerived(carteDoc) {
   const paiements = carte.paiements || [];
   let montantPaye = paiements.reduce((sum, p) => sum + Number(p.montant || 0), 0);
   // If card is marked complete but has no paiement records, treat it as fully paid
+  // for backward compatibility but mark it as autoComputed so the client can
+  // render a badge while allowing manual entries after migration.
+  carte.autoComputed = false;
   if ((montantPaye === 0 || montantPaye === null) && carte.statut === 'complete') {
     montantPaye = Number(carte.montantTotal) || 0;
+    carte.autoComputed = true;
   }
   carte.montantPaye = montantPaye;
   carte.montantRestant = Math.max(0, (Number(carte.montantTotal) || 0) - montantPaye);
@@ -259,12 +263,11 @@ router.post('/', authorize('admin', 'tresorier'), async (req, res) => {
       createdBy: req.user.id
     };
 
-    // If payment is annual, mark the card as complete but do NOT create a paiement.
-    // This keeps no artificial payment records while still allowing the card to
-    // be considered fully paid when computing totals (handled in computeDerived).
-    if ((frequencePaiement || 'annuel') === 'annuel') {
-      initialData.statut = 'complete';
-    }
+    // NOTE: previously annual cards were marked 'complete' by default which
+    // caused the UI to display an "Auto-complete" badge and the server to
+    // consider them fully paid without any paiement records. That prevented
+    // manual entry of the paid amount. To allow manual montant entry we keep
+    // the default statut (en_cours) and do not auto-complete cards on creation.
 
     const carte = await CarteCodebaf.create(initialData);
 
