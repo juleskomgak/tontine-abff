@@ -34,6 +34,16 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Prevent iOS Safari from auto-zooming inputs when font-size < 16px
+   and avoid horizontal overflow caused by small layout issues. */
+html, body {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  overflow-x: hidden;
+}
+
 // Responsive global
 @media (max-width: 1024px) {
   html, body {
@@ -75,6 +85,11 @@ body {
 @media (max-width: 480px) {
   html, body {
     font-size: 13px;
+  }
+  /* iOS will auto-zoom inputs if their font-size is less than 16px.
+     Force input controls to 16px to prevent that behavior. */
+  input, textarea, select, button {
+    font-size: 16px !important;
   }
   .mat-mdc-card, .mat-mdc-form-field, .mat-mdc-table, .mat-mdc-dialog-container {
     margin: 4px !important;

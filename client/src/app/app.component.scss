@@ -35,7 +35,11 @@ mat-toolbar {
 }
 
 .app-content {
-  min-height: calc(100vh - 64px);
+  /* Use dynamic viewport height to handle mobile browser UI on iOS correctly */
+  min-height: calc(100dvh - 64px);
+  /* Respect safe area on iPhone with notch */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
   background: linear-gradient(to bottom, #f8fafc 0%, #e2e8f0 100%);
 }
 
