@@ -22,6 +22,8 @@ import { MemberService } from '../../services/member.service';
 import { AuthService } from '../../services/auth.service';
 import { Member } from '../../models';
 import { MemberFilterComponent } from '../../shared/member-filter.component';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 @Component({
   selector: 'app-solidarite',
@@ -657,8 +659,8 @@ import { MemberFilterComponent } from '../../shared/member-filter.component';
           </mat-card-content>
           <mat-card-actions align="end">
             <button mat-stroked-button color="primary" (click)="printMembreReport()">
-              <mat-icon>print</mat-icon>
-              Imprimer le rapport
+              <mat-icon>download</mat-icon>
+              Télécharger PDF
             </button>
             <button mat-button (click)="showDetailModal = false">Fermer</button>
           </mat-card-actions>
@@ -1644,7 +1646,136 @@ export class SolidariteComponent implements OnInit {
   }
 
   printMembreReport() {
-    window.print();
+    const detail = this.membreDetail();
+    if (!detail) return;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    let yPosition = 20;
+
+    // Titre
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Rapport Solidarités', pageWidth / 2, yPosition, { align: 'center' });
+    yPosition += 15;
+
+    // Informations du membre
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Membre: ${detail.membre.nom} ${detail.membre.prenom}`, 20, yPosition);
+    yPosition += 10;
+
+    if (detail.membre.telephone) {
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Téléphone: ${detail.membre.telephone}`, 20, yPosition);
+      yPosition += 10;
+    }
+
+    doc.text(`Année: ${this.selectedAnnee}`, 20, yPosition);
+    yPosition += 10;
+
+    doc.text(`Date d'impression: ${new Date().toLocaleDateString('fr-FR')}`, 20, yPosition);
+    yPosition += 20;
+
+    // Pour chaque type de solidarité
+    Object.entries(detail.solidarites).forEach(([typeKey, solidarite]) => {
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+
+      // Titre du type
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${solidarite.config.libelle}`, 20, yPosition);
+      yPosition += 10;
+
+      // Statistiques
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Payé: ${solidarite.totalPaye.toLocaleString('fr-FR')} FCFA`, 30, yPosition);
+      yPosition += 8;
+      doc.text(`Attendu: ${solidarite.montantAttendu.toLocaleString('fr-FR')} FCFA`, 30, yPosition);
+      yPosition += 8;
+      doc.text(`Reste: ${solidarite.montantRestant.toLocaleString('fr-FR')} FCFA`, 30, yPosition);
+      yPosition += 8;
+      doc.text(`Statut: ${solidarite.statut === 'a_jour' ? 'À jour' : 'En retard'}`, 30, yPosition);
+      yPosition += 15;
+
+      // Mois payés
+      if (solidarite.moisPayes.length > 0) {
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Mois payés:', 30, yPosition);
+        yPosition += 8;
+
+        doc.setFont('helvetica', 'normal');
+        const moisPayesText = solidarite.moisPayes.map(m => this.getMoisNom(m)).join(', ');
+        const splitMois = doc.splitTextToSize(moisPayesText, pageWidth - 40);
+        doc.text(splitMois, 40, yPosition);
+        yPosition += splitMois.length * 5 + 5;
+      }
+
+      // Mois en retard
+      if (solidarite.moisEnRetard.length > 0) {
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Mois en retard:', 30, yPosition);
+        yPosition += 8;
+
+        doc.setFont('helvetica', 'normal');
+        const moisRetardText = solidarite.moisEnRetard.map(m => this.getMoisNom(m)).join(', ');
+        const splitRetard = doc.splitTextToSize(moisRetardText, pageWidth - 40);
+        doc.text(splitRetard, 40, yPosition);
+        yPosition += splitRetard.length * 5 + 10;
+      }
+    });
+
+    // Historique des paiements
+    if (this.membreDetailPaiements().length > 0) {
+      if (yPosition > 200) {
+        doc.addPage();
+        yPosition = 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Historique des paiements', 20, yPosition);
+      yPosition += 15;
+
+      // Préparer les données pour le tableau
+      const tableData = this.membreDetailPaiements().map(paiement => [
+        new Date(paiement.datePaiement).toLocaleDateString('fr-FR'),
+        this.getTypeLabel(paiement.typeSolidarite),
+        this.getPeriodeLabel(paiement),
+        `${paiement.montant.toLocaleString('fr-FR')} FCFA`,
+        paiement.methodePaiement || '-'
+      ]);
+
+      (doc as any).autoTable({
+        startY: yPosition,
+        head: [['Date', 'Type', 'Période', 'Montant', 'Méthode']],
+        body: tableData,
+        theme: 'grid',
+        styles: {
+          fontSize: 9,
+          cellPadding: 3
+        },
+        headStyles: {
+          fillColor: [41, 128, 185],
+          textColor: 255,
+          fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245]
+        }
+      });
+    }
+
+    // Télécharger le PDF
+    const fileName = `rapport_solidarite_${detail.membre.nom}_${detail.membre.prenom}_${this.selectedAnnee}.pdf`;
+    doc.save(fileName);
   }
 
   getStatutGlobal(statut: MembreSolidariteStatut): 'a_jour' | 'en_retard' {

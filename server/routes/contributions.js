@@ -8,6 +8,37 @@ const Tour = require('../models/Tour');
 const BanqueCentrale = require('../models/BanqueCentrale');
 const { protect, authorize } = require('../middleware/auth');
 
+// Fonction utilitaire pour recalculer le montant d'un tour
+async function recalculerMontantTour(tourId) {
+  try {
+    // Calculer la somme des cotisations reçues pour ce tour
+    const totalCotisations = await Contribution.aggregate([
+      { 
+        $match: { 
+          tour: tourId, 
+          statut: 'recu' 
+        } 
+      },
+      { 
+        $group: { 
+          _id: null, 
+          total: { $sum: '$montant' } 
+        } 
+      }
+    ]);
+
+    const montantRecu = totalCotisations.length > 0 ? totalCotisations[0].total : 0;
+    
+    // Mettre à jour le montant du tour
+    await Tour.findByIdAndUpdate(tourId, { montantRecu });
+    
+    return montantRecu;
+  } catch (error) {
+    console.error('Erreur lors du recalcul du montant du tour:', error);
+    return 0;
+  }
+}
+
 // Toutes les routes sont protégées
 router.use(protect);
 
@@ -393,49 +424,12 @@ router.post('/', authorize('admin', 'tresorier'), [
 
     // Si la cotisation est reçue, mettre à jour la banque
     if (contribution.statut === 'recu') {
-      let banque = await BanqueTontine.findOne({ tontine: contribution.tontine._id });
-      
-      if (!banque) {
-        banque = await BanqueTontine.create({
-          tontine: contribution.tontine._id
-        });
-      }
+      // Plus de recalcul automatique - les montants sont maintenant basés uniquement sur les tours
+      // const { recalculerMontantsBanque } = require('./banque');
+      // await recalculerMontantsBanque(contribution.tontine._id);
 
-      // Ajouter la transaction
-      banque.transactions.push({
-        type: 'cotisation',
-        montant: contribution.montant,
-        description: `Cotisation pour Tour ${tour.numeroTour}`,
-        contribution: contribution._id,
-        tour: tour._id,
-        membre: contribution.membre._id,
-        date: contribution.datePaiement,
-        effectuePar: req.user.id
-      });
-
-      banque.soldeCotisations += contribution.montant;
-      banque.totalCotise += contribution.montant;
-
-      await banque.save();
-
-      // Mettre à jour le montant du tour avec la somme des cotisations
-      const totalCotisationsTour = await Contribution.aggregate([
-        { 
-          $match: { 
-            tour: tour._id, 
-            statut: 'recu' 
-          } 
-        },
-        { 
-          $group: { 
-            _id: null, 
-            total: { $sum: '$montant' } 
-          } 
-        }
-      ]);
-
-      const montantRecu = totalCotisationsTour.length > 0 ? totalCotisationsTour[0].total : 0;
-      await Tour.findByIdAndUpdate(tour._id, { montantRecu });
+      // Recalculer le montant du tour avec la nouvelle cotisation
+      await recalculerMontantTour(tour._id);
     }
 
     res.status(201).json({
@@ -475,38 +469,13 @@ router.put('/:id', authorize('admin', 'tresorier'), async (req, res) => {
       { path: 'enregistrePar', select: 'nom prenom' }
     ]);
 
-    // Si le statut passe à "reçu" et n'était pas déjà reçu, mettre à jour la banque
-    if (contribution.statut === 'recu' && contributionAvant.statut !== 'recu') {
-      let banque = await BanqueTontine.findOne({ tontine: contribution.tontine._id });
+    // Recalculer le montant du tour si le montant ou le statut a changé
+    if (contributionAvant.montant !== contribution.montant || contributionAvant.statut !== contribution.statut) {
+      await recalculerMontantTour(contributionAvant.tour);
       
-      if (!banque) {
-        banque = await BanqueTontine.create({
-          tontine: contribution.tontine._id
-        });
-      }
-
-      // Vérifier que la transaction n'existe pas déjà
-      const transactionExists = banque.transactions.some(
-        t => t.type === 'cotisation' && t.contribution?.toString() === contribution._id.toString()
-      );
-
-      if (!transactionExists) {
-        // Ajouter la transaction
-        banque.transactions.push({
-          type: 'cotisation',
-          montant: contribution.montant,
-          description: 'Cotisation enregistrée',
-          contribution: contribution._id,
-          membre: contribution.membre._id,
-          date: contribution.datePaiement,
-          effectuePar: req.user.id
-        });
-
-        banque.soldeCotisations += contribution.montant;
-        banque.totalCotise += contribution.montant;
-
-        await banque.save();
-      }
+      // Plus de recalcul automatique de la banque - basé uniquement sur les tours
+      // const { recalculerMontantsBanque } = require('./banque');
+      // await recalculerMontantsBanque(contribution.tontine._id);
     }
 
     res.json({
@@ -536,7 +505,22 @@ router.delete('/:id', authorize('admin'), async (req, res) => {
       });
     }
 
+    const tourId = contribution.tour;
+    const tontineId = contribution.tontine;
+
+    // Si la contribution était reçue, mettre à jour la banque
+    if (contribution.statut === 'recu') {
+      // Plus de recalcul automatique - basé uniquement sur les tours
+      // const { recalculerMontantsBanque } = require('./banque');
+      // await recalculerMontantsBanque(tontineId);
+    }
+
     await contribution.deleteOne();
+
+    // Recalculer le montant du tour après suppression
+    if (tourId) {
+      await recalculerMontantTour(tourId);
+    }
 
     res.json({
       success: true,

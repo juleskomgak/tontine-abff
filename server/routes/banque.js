@@ -9,8 +9,66 @@ const Contribution = require('../models/Contribution');
 const Member = require('../models/Member');
 const { protect, authorize } = require('../middleware/auth');
 
-// Toutes les routes sont protégées
-router.use(protect);
+// Fonction utilitaire pour recalculer les montants de la banque
+async function recalculerMontantsBanque(tontineId) {
+  try {
+    console.log(`Recalcul des montants pour la tontine ${tontineId} basé uniquement sur les tours`);
+    
+    // Récupérer tous les tours payés ou refusés pour cette tontine
+    const toursPayesOuRefuses = await Tour.find({
+      tontine: tontineId,
+      statut: { $in: ['paye', 'refuse'] }
+    });
+    
+    // Calculer le total collecté (tours payés = argent collecté et distribué)
+    const totalCollecte = toursPayesOuRefuses
+      .filter(t => t.statut === 'paye')
+      .reduce((sum, t) => sum + (t.montantRecu || 0), 0);
+    
+    // Calculer le total distribué (tours payés = argent distribué)
+    const totalDistribue = totalCollecte; // Dans ce modèle simplifié, ce qui est collecté est distribué
+    
+    // Calculer le total des refus (tours refusés = argent qui reste en banque)
+    const totalRefus = toursPayesOuRefuses
+      .filter(t => t.statut === 'refuse')
+      .reduce((sum, t) => sum + (t.montantRecu || 0), 0);
+    
+    // Calculer les soldes
+    // Solde disponible = argent des refus (puisque l'argent des tours payés a été distribué)
+    const soldeDisponible = totalRefus;
+    const soldeTotal = soldeDisponible;
+    
+    console.log(`Nouveaux montants calculés (basés uniquement sur les tours):`, {
+      totalCollecte,
+      totalDistribue,
+      totalRefus,
+      soldeDisponible,
+      soldeTotal
+    });
+    
+    // Mettre à jour ou créer la banque
+    let banque = await BanqueTontine.findOne({ tontine: tontineId });
+    
+    if (!banque) {
+      banque = new BanqueTontine({ tontine: tontineId });
+    }
+    
+    // Mettre à jour les montants
+    banque.totalCotise = totalCollecte; // Renommé pour cohérence mais représente la collecte totale
+    banque.totalDistribue = totalDistribue;
+    banque.totalRefus = totalRefus;
+    banque.soldeCotisations = 0; // Plus utilisé dans ce modèle
+    banque.soldeRefus = soldeDisponible;
+    banque.soldeTotal = soldeTotal;
+    
+    await banque.save();
+    
+    return banque;
+  } catch (error) {
+    console.error('Erreur lors du recalcul des montants:', error);
+    throw error;
+  }
+}
 
 // Fonction utilitaire pour vérifier l'accès à une tontine
 async function checkTontineAccess(userId, userRole, tontineId) {
@@ -28,10 +86,36 @@ async function checkTontineAccess(userId, userRole, tontineId) {
   return tontine.membres.some(m => m.membre.toString() === member._id.toString());
 }
 
+// @route   POST /api/banque/tontine/:tontineId/recalculer
+// @desc    Recalculer les montants de la banque basés uniquement sur les tours payés/refusés
+// @access  Private (Admin, Trésorier)
+router.post('/tontine/:tontineId/recalculer', protect, authorize('admin', 'tresorier'), async (req, res) => {
+  try {
+    const banque = await recalculerMontantsBanque(req.params.tontineId);
+    
+    await banque.populate([
+      { path: 'tontine', select: 'nom montantCotisation nombreMembres' }
+    ]);
+    
+    res.json({
+      success: true,
+      message: 'Montants de la banque recalculés avec succès',
+      data: banque
+    });
+  } catch (error) {
+    console.error('Erreur lors du recalcul:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors du recalcul des montants',
+      error: error.message
+    });
+  }
+});
+
 // @route   GET /api/banque/tontine/:tontineId
 // @desc    Obtenir la banque d'une tontine
 // @access  Private
-router.get('/tontine/:tontineId', async (req, res) => {
+router.get('/tontine/:tontineId', protect, async (req, res) => {
   try {
     // Vérifier l'accès pour les membres
     const hasAccess = await checkTontineAccess(req.user._id, req.user.role, req.params.tontineId);
@@ -80,13 +164,27 @@ router.get('/tontine/:tontineId', async (req, res) => {
     });
   }
 });
-
-// @route   POST /api/banque/tontine/:tontineId/cotisation
-// @desc    Enregistrer une cotisation dans la banque
+// @desc    Enregistrer une cotisation dans la banque (pour historique uniquement - montants calculés depuis les tours)
 // @access  Private (Admin, Trésorier)
-router.post('/tontine/:tontineId/cotisation', authorize('admin', 'tresorier'), async (req, res) => {
+router.post('/tontine/:tontineId/cotisation', protect, authorize('admin', 'tresorier'), async (req, res) => {
   try {
     const { contributionId, montant } = req.body;
+
+    // Vérifier que la contribution existe et a le bon statut
+    const contribution = await Contribution.findById(contributionId);
+    if (!contribution) {
+      return res.status(404).json({
+        success: false,
+        message: 'Contribution non trouvée'
+      });
+    }
+
+    if (!['recu', 'refuse'].includes(contribution.statut)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Seules les contributions reçues ou refusées peuvent être enregistrées en banque'
+      });
+    }
 
     let banque = await BanqueTontine.findOne({ tontine: req.params.tontineId });
     
@@ -96,7 +194,7 @@ router.post('/tontine/:tontineId/cotisation', authorize('admin', 'tresorier'), a
       });
     }
 
-    // Ajouter la transaction
+    // Ajouter la transaction (pour historique uniquement)
     banque.transactions.push({
       type: 'cotisation',
       montant,
@@ -106,10 +204,9 @@ router.post('/tontine/:tontineId/cotisation', authorize('admin', 'tresorier'), a
       effectuePar: req.user.id
     });
 
-    banque.soldeCotisations += montant;
-    banque.totalCotise += montant;
-
     await banque.save();
+
+    // Plus de recalcul automatique - les montants sont maintenant basés uniquement sur les tours
     await banque.populate([
       { path: 'tontine', select: 'nom montantCotisation' },
       { path: 'transactions.effectuePar', select: 'nom prenom' }
@@ -117,7 +214,7 @@ router.post('/tontine/:tontineId/cotisation', authorize('admin', 'tresorier'), a
 
     res.json({
       success: true,
-      message: 'Cotisation enregistrée dans la banque',
+      message: 'Cotisation enregistrée dans la banque (historique uniquement)',
       data: banque
     });
   } catch (error) {
@@ -132,18 +229,9 @@ router.post('/tontine/:tontineId/cotisation', authorize('admin', 'tresorier'), a
 // @route   POST /api/banque/tontine/:tontineId/paiement-tour
 // @desc    Enregistrer un paiement de tour
 // @access  Private (Admin, Trésorier)
-router.post('/tontine/:tontineId/paiement-tour', authorize('admin', 'tresorier'), async (req, res) => {
+router.post('/tontine/:tontineId/paiement-tour', protect, authorize('admin', 'tresorier'), async (req, res) => {
   try {
     const { tourId, montant } = req.body;
-
-    let banque = await BanqueTontine.findOne({ tontine: req.params.tontineId });
-    
-    if (!banque) {
-      return res.status(404).json({
-        success: false,
-        message: 'Banque non trouvée'
-      });
-    }
 
     const tour = await Tour.findById(tourId).populate('beneficiaire', 'nom prenom');
 
@@ -151,6 +239,22 @@ router.post('/tontine/:tontineId/paiement-tour', authorize('admin', 'tresorier')
       return res.status(404).json({
         success: false,
         message: 'Tour non trouvé'
+      });
+    }
+
+    if (tour.statut !== 'paye') {
+      return res.status(400).json({
+        success: false,
+        message: 'Le tour doit être marqué comme payé avant l\'enregistrement en banque'
+      });
+    }
+
+    let banque = await BanqueTontine.findOne({ tontine: req.params.tontineId });
+    
+    if (!banque) {
+      return res.status(404).json({
+        success: false,
+        message: 'Banque non trouvée'
       });
     }
 
@@ -173,11 +277,10 @@ router.post('/tontine/:tontineId/paiement-tour', authorize('admin', 'tresorier')
       effectuePar: req.user.id
     });
 
-    banque.soldeCotisations -= montant;
-    banque.totalDistribue += montant;
+    // Recalculer automatiquement les montants
+    const banqueRecalculee = await recalculerMontantsBanque(req.params.tontineId);
 
-    await banque.save();
-    await banque.populate([
+    await banqueRecalculee.populate([
       { path: 'tontine', select: 'nom montantCotisation' },
       { path: 'transactions.effectuePar', select: 'nom prenom' }
     ]);
@@ -185,7 +288,7 @@ router.post('/tontine/:tontineId/paiement-tour', authorize('admin', 'tresorier')
     res.json({
       success: true,
       message: 'Paiement enregistré',
-      data: banque
+      data: banqueRecalculee
     });
   } catch (error) {
     res.status(500).json({
@@ -199,7 +302,7 @@ router.post('/tontine/:tontineId/paiement-tour', authorize('admin', 'tresorier')
 // @route   POST /api/banque/tontine/:tontineId/refus-tour
 // @desc    Enregistrer un refus de tour
 // @access  Private (Admin, Trésorier)
-router.post('/tontine/:tontineId/refus-tour', authorize('admin', 'tresorier'), async (req, res) => {
+router.post('/tontine/:tontineId/refus-tour', protect, authorize('admin', 'tresorier'), async (req, res) => {
   try {
     const { tourId, raison } = req.body;
 
@@ -217,6 +320,13 @@ router.post('/tontine/:tontineId/refus-tour', authorize('admin', 'tresorier'), a
       return res.status(404).json({
         success: false,
         message: 'Tour non trouvé'
+      });
+    }
+
+    if (tour.statut !== 'refuse') {
+      return res.status(400).json({
+        success: false,
+        message: 'Le tour doit être marqué comme refusé avant l\'enregistrement en banque'
       });
     }
 
@@ -241,16 +351,15 @@ router.post('/tontine/:tontineId/refus-tour', authorize('admin', 'tresorier'), a
       effectuePar: req.user.id
     });
 
-    banque.soldeRefus += tour.montantRecu;
-    banque.totalRefus += tour.montantRecu;
-
     // Mettre à jour le statut du tour
     tour.statut = 'refuse';
     tour.notes = raison;
     await tour.save();
 
-    await banque.save();
-    await banque.populate([
+    // Recalculer automatiquement les montants
+    const banqueRecalculee = await recalculerMontantsBanque(req.params.tontineId);
+
+    await banqueRecalculee.populate([
       { path: 'tontine', select: 'nom montantCotisation' },
       { path: 'toursRefuses.beneficiaire', select: 'nom prenom' },
       { path: 'transactions.effectuePar', select: 'nom prenom' }
@@ -259,7 +368,7 @@ router.post('/tontine/:tontineId/refus-tour', authorize('admin', 'tresorier'), a
     res.json({
       success: true,
       message: 'Refus enregistré',
-      data: banque
+      data: banqueRecalculee
     });
   } catch (error) {
     res.status(500).json({
@@ -273,7 +382,7 @@ router.post('/tontine/:tontineId/refus-tour', authorize('admin', 'tresorier'), a
 // @route   POST /api/banque/tontine/:tontineId/annuler-refus
 // @desc    Annuler un refus de tour (changement d'avis du membre)
 // @access  Private (Admin, Trésorier)
-router.post('/tontine/:tontineId/annuler-refus', authorize('admin', 'tresorier'), async (req, res) => {
+router.post('/tontine/:tontineId/annuler-refus', protect, authorize('admin', 'tresorier'), async (req, res) => {
   try {
     const { tourId, nouveauStatut } = req.body;
 
@@ -379,12 +488,15 @@ router.post('/tontine/:tontineId/annuler-refus', authorize('admin', 'tresorier')
     // Mettre à jour le statut du tour
     tour.statut = nouveauStatut;
     tour.notes = `Changement d'avis - Ancien statut: refusé`;
+    if (nouveauStatut === 'paye') {
+      tour.datePaiement = new Date();
+    }
     await tour.save();
 
-    console.log('Tour mis à jour - nouveau statut:', tour.statut);
-
-    await banque.save();
-    await banque.populate([
+    // Recalculer automatiquement les montants
+    const banqueRecalculee = await recalculerMontantsBanque(req.params.tontineId);
+    
+    await banqueRecalculee.populate([
       { path: 'tontine', select: 'nom montantCotisation' },
       { path: 'toursRefuses.beneficiaire', select: 'nom prenom' },
       { path: 'transactions.effectuePar', select: 'nom prenom' }
@@ -393,7 +505,7 @@ router.post('/tontine/:tontineId/annuler-refus', authorize('admin', 'tresorier')
     res.json({
       success: true,
       message: `Refus annulé - Tour maintenant ${nouveauStatut === 'paye' ? 'payé' : 'attribué'}`,
-      data: banque
+      data: banqueRecalculee
     });
   } catch (error) {
     console.error('Erreur annuler-refus:', error);
@@ -408,7 +520,7 @@ router.post('/tontine/:tontineId/annuler-refus', authorize('admin', 'tresorier')
 // @route   POST /api/banque/tontine/:tontineId/annuler-paiement
 // @desc    Annuler (rollback) un paiement de tour — inverse la transaction et met le tour à "attribue"
 // @access  Private (Admin, Trésorier)
-router.post('/tontine/:tontineId/annuler-paiement', authorize('admin', 'tresorier'), async (req, res) => {
+router.post('/tontine/:tontineId/annuler-paiement', protect, authorize('admin', 'tresorier'), async (req, res) => {
   try {
     const { tourId } = req.body;
 
@@ -466,14 +578,16 @@ router.post('/tontine/:tontineId/annuler-paiement', authorize('admin', 'tresorie
     tour.notes = `Paiement annulé par ${req.user.nom || req.user.id}`;
 
     await tour.save();
-    await banque.save();
 
-    await banque.populate([
+    // Recalculer automatiquement les montants
+    const banqueRecalculee = await recalculerMontantsBanque(req.params.tontineId);
+    
+    await banqueRecalculee.populate([
       { path: 'tontine', select: 'nom montantCotisation' },
       { path: 'transactions.effectuePar', select: 'nom prenom' }
     ]);
 
-    res.json({ success: true, message: 'Paiement du tour annulé avec succès', data: banque });
+    res.json({ success: true, message: 'Paiement du tour annulé avec succès', data: banqueRecalculee });
   } catch (error) {
     console.error('Erreur annuler-paiement:', error);
     res.status(500).json({ success: false, message: 'Erreur lors de l\'annulation du paiement', error: error.message });
@@ -483,7 +597,7 @@ router.post('/tontine/:tontineId/annuler-paiement', authorize('admin', 'tresorie
 // @route   POST /api/banque/tontine/:tontineId/redistribuer
 // @desc    Redistribuer les fonds des tours refusés
 // @access  Private (Admin)
-router.post('/tontine/:tontineId/redistribuer', authorize('admin'), async (req, res) => {
+router.post('/tontine/:tontineId/redistribuer', protect, authorize('admin'), async (req, res) => {
   try {
     const { beneficiaires } = req.body; // Array of { membreId, montant }
 
@@ -559,7 +673,7 @@ router.post('/tontine/:tontineId/redistribuer', authorize('admin'), async (req, 
 // @route   GET /api/banque/tontine/:tontineId/statistiques
 // @desc    Obtenir les statistiques de la banque
 // @access  Private
-router.get('/tontine/:tontineId/statistiques', async (req, res) => {
+router.get('/tontine/:tontineId/statistiques', protect, async (req, res) => {
   try {
     // Vérifier l'accès pour les membres
     const hasAccess = await checkTontineAccess(req.user._id, req.user.role, req.params.tontineId);
@@ -611,7 +725,7 @@ router.get('/tontine/:tontineId/statistiques', async (req, res) => {
 // @route   GET /api/banque
 // @desc    Obtenir toutes les banques
 // @access  Private (Admin)
-router.get('/', authorize('admin'), async (req, res) => {
+router.get('/', protect, authorize('admin'), async (req, res) => {
   try {
     const banques = await BanqueTontine.find()
       .populate('tontine', 'nom montantCotisation nombreMembres statut')
@@ -631,12 +745,10 @@ router.get('/', authorize('admin'), async (req, res) => {
   }
 });
 
-module.exports = router;
-
 // @route   GET /api/banque/centrale/summary
 // @desc    Obtenir un résumé centralisé (tontines, solidarites, cartes)
 // @access  Private (Admin, Tresorier)
-router.get('/centrale/summary', authorize('admin', 'tresorier'), async (req, res) => {
+router.get('/centrale/summary', protect, authorize('admin', 'tresorier'), async (req, res) => {
   try {
     // Agréger les banques de tontine
     const banques = await BanqueCentrale.find({ tontine: { $exists: true, $ne: null } });
@@ -678,3 +790,5 @@ router.get('/centrale/summary', authorize('admin', 'tresorier'), async (req, res
     res.status(500).json({ success: false, error: 'Erreur lors de la récupération du résumé central' });
   }
 });
+
+module.exports = router;

@@ -8,6 +8,37 @@ const BanqueCentrale = require('../models/BanqueCentrale');
 const Contribution = require('../models/Contribution');
 const { protect, authorize } = require('../middleware/auth');
 
+// Fonction utilitaire pour recalculer le montant d'un tour
+async function recalculerMontantTour(tourId) {
+  try {
+    // Calculer la somme des cotisations reçues pour ce tour
+    const totalCotisations = await Contribution.aggregate([
+      { 
+        $match: { 
+          tour: tourId, 
+          statut: 'recu' 
+        } 
+      },
+      { 
+        $group: { 
+          _id: null, 
+          total: { $sum: '$montant' } 
+        } 
+      }
+    ]);
+
+    const montantRecu = totalCotisations.length > 0 ? totalCotisations[0].total : 0;
+    
+    // Mettre à jour le montant du tour
+    await Tour.findByIdAndUpdate(tourId, { montantRecu });
+    
+    return montantRecu;
+  } catch (error) {
+    console.error('Erreur lors du recalcul du montant du tour:', error);
+    return 0;
+  }
+}
+
 // Toutes les routes sont protégées
 router.use(protect);
 
@@ -216,20 +247,17 @@ router.post('/', authorize('admin', 'tresorier'), [
       }
     }
 
-    // Calculer le montant réel des cotisations reçues pour ce cycle si non fourni
+    // Calculer le montant réel des cotisations reçues pour ce tour spécifique
     let montantRecu = req.body.montantRecu;
     if (!montantRecu || montantRecu === 0) {
-      const contributionsDuCycle = await Contribution.find({
+      // Calculer la somme des cotisations pour ce tour spécifique
+      const contributionsDuTour = await Contribution.find({
+        tour: req.body.tour || null, // Si un tour spécifique est fourni
         tontine: req.body.tontine,
         cycle: req.body.cycle,
         statut: 'recu'
       });
-      montantRecu = contributionsDuCycle.reduce((sum, c) => sum + c.montant, 0);
-      
-      // Fallback au montant théorique si aucune cotisation
-      if (montantRecu === 0) {
-        montantRecu = tontine.montantTotal;
-      }
+      montantRecu = contributionsDuTour.reduce((sum, c) => sum + c.montant, 0);
     }
 
     const tourData = {
@@ -341,7 +369,7 @@ router.post('/tirage/:tontineId', authorize('admin', 'tresorier'), async (req, r
       }
     }
 
-    // Calculer le montant réel des cotisations reçues pour ce cycle
+    // Calculer le montant réel des cotisations reçues pour ce cycle (sera recalculé après création du tour)
     const contributionsDuCycle = await Contribution.find({
       tontine: req.params.tontineId,
       cycle: tontine.cycleCourant,
@@ -350,8 +378,8 @@ router.post('/tirage/:tontineId', authorize('admin', 'tresorier'), async (req, r
     
     const montantReelCotise = contributionsDuCycle.reduce((sum, c) => sum + c.montant, 0);
     
-    // Utiliser le montant réel si disponible, sinon le montant théorique
-    const montantTour = montantReelCotise > 0 ? montantReelCotise : tontine.montantTotal;
+    // Utiliser le montant réel si disponible, sinon 0 (sera recalculé après)
+    const montantTour = montantReelCotise > 0 ? montantReelCotise : 0;
 
     // Créer le tour
     const tour = await Tour.create({
@@ -364,6 +392,9 @@ router.post('/tirage/:tontineId', authorize('admin', 'tresorier'), async (req, r
       modeAttribution: 'tirage_au_sort',
       attribuePar: req.user.id
     });
+
+    // Recalculer le montant du tour basé sur les cotisations spécifiques à ce tour
+    await recalculerMontantTour(tour._id);
 
     await tour.populate([
       { path: 'tontine', select: 'nom montantCotisation' },
@@ -422,39 +453,10 @@ router.put('/:id/status', authorize('admin', 'tresorier'), [
       { path: 'beneficiaire', select: 'nom prenom telephone' }
     ]);
 
-    // Si le tour passe à "payé" et n'était pas déjà payé, mettre à jour la banque
-    if (req.body.statut === 'paye' && tourAvant.statut !== 'paye') {
-      let banque = await BanqueTontine.findOne({ tontine: tour.tontine._id });
-      
-      if (!banque) {
-        banque = await BanqueTontine.create({
-          tontine: tour.tontine._id
-        });
-      }
-
-      // Vérifier que la transaction n'existe pas déjà
-      const transactionExists = banque.transactions.some(
-        t => t.type === 'paiement_tour' && t.tour?.toString() === tour._id.toString()
-      );
-
-      if (!transactionExists) {
-        // Ajouter la transaction
-        banque.transactions.push({
-          type: 'paiement_tour',
-          montant: -tour.montantRecu,
-          description: `Paiement tour à ${tour.beneficiaire.nom} ${tour.beneficiaire.prenom}`,
-          tour: tour._id,
-          membre: tour.beneficiaire._id,
-          date: updateData.datePaiement || new Date(),
-          effectuePar: req.user.id
-        });
-
-        // Mettre à jour les soldes
-        banque.soldeCotisations -= tour.montantRecu;
-        banque.totalDistribue += tour.montantRecu;
-
-        await banque.save();
-      }
+    // Si le statut du tour a changé, recalculer les montants de la banque
+    if (tourAvant.statut !== req.body.statut) {
+      const { recalculerMontantsBanque } = require('./banque');
+      await recalculerMontantsBanque(tour.tontine._id);
     }
 
     res.json({
