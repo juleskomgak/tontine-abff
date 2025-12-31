@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { TontineService } from '../../services/tontine.service';
 import { AuthService } from '../../services/auth.service';
 import { Tontine } from '../../models';
@@ -20,7 +21,8 @@ import { Tontine } from '../../models';
     MatButtonModule,
     MatIconModule,
     MatChipsModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatDialogModule
   ],
   template: `
     <div class="page-container">
@@ -116,6 +118,12 @@ import { Tontine } from '../../models';
                   <button mat-button color="accent" (click)="editTontine($event, tontine._id)">
                     <mat-icon>edit</mat-icon>
                     Modifier
+                  </button>
+                }
+                @if (authService.hasRole('admin')) {
+                  <button mat-button color="warn" (click)="deleteTontine($event, tontine)">
+                    <mat-icon>delete_forever</mat-icon>
+                    Supprimer
                   </button>
                 }
               </mat-card-actions>
@@ -322,6 +330,7 @@ export class TontinesComponent implements OnInit {
   private tontineService = inject(TontineService);
   private snackBar = inject(MatSnackBar);
   private router = inject(Router);
+  private dialog = inject(MatDialog);
 
   tontines = signal<Tontine[]>([]);
 
@@ -375,5 +384,63 @@ export class TontinesComponent implements OnInit {
   editTontine(event: Event, tontineId: string) {
     event.stopPropagation();
     this.router.navigate(['/tontines', 'edit', tontineId]);
+  }
+
+  async deleteTontine(event: Event, tontine: Tontine) {
+    event.stopPropagation();
+
+    // Importer le composant de confirmation de manière dynamique
+    const { ConfirmDialogComponent } = await import('../../shared/confirm-dialog.component');
+
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '500px',
+      data: {
+        title: 'Supprimer la tontine',
+        message: `Êtes-vous sûr de vouloir supprimer définitivement la tontine "${tontine.nom}" ?`,
+        details: 'Cette action entraînera la suppression complète de :',
+        detailsList: [
+          '• La tontine elle-même',
+          '• Tous les tours associés',
+          '• Toutes les cotisations',
+          '• Les montants en banque',
+          '• Les paiements de solidarité des membres',
+          '• Les cartes CODEBAF associées'
+        ],
+        confirmLabel: 'Supprimer définitivement',
+        cancelLabel: 'Annuler',
+        confirmColor: 'warn',
+        requireReason: false
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((result: any) => {
+      if (!result || !result.confirmed) return;
+
+      this.tontineService.deleteTontine(tontine._id).subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.snackBar.open(`Tontine "${tontine.nom}" supprimée avec succès`, 'Fermer', {
+              duration: 5000,
+              panelClass: 'success-snackbar'
+            });
+            // Recharger la liste des tontines
+            this.loadTontines();
+          } else {
+            this.snackBar.open(response.message || 'Erreur lors de la suppression', 'Fermer', {
+              duration: 5000,
+              panelClass: 'error-snackbar'
+            });
+          }
+        },
+        error: (error) => {
+          console.error('Erreur suppression tontine:', error);
+          this.snackBar.open(
+            error.error?.message || 'Erreur lors de la suppression de la tontine',
+            'Fermer',
+            { duration: 5000, panelClass: 'error-snackbar' }
+          );
+        }
+      });
+    });
   }
 }

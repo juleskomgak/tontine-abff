@@ -3,6 +3,12 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const Tontine = require('../models/Tontine');
 const Member = require('../models/Member');
+const Tour = require('../models/Tour');
+const Contribution = require('../models/Contribution');
+const BanqueTontine = require('../models/BanqueTontine');
+const PaiementSolidarite = require('../models/PaiementSolidarite');
+const Solidarite = require('../models/Solidarite');
+const CarteCodebaf = require('../models/CarteCodebaf');
 const { protect, authorize } = require('../middleware/auth');
 
 // Toutes les routes sont protégées
@@ -314,38 +320,92 @@ router.post('/:id/members', authorize('admin', 'tresorier'), [
 });
 
 // @route   DELETE /api/tontines/:id
-// @desc    Supprimer une tontine
-// @access  Private (Admin)
+// @desc    Supprimer complètement une tontine et toutes ses données associées
+// @access  Private (Admin seulement)
 router.delete('/:id', authorize('admin'), async (req, res) => {
+  const session = await Tontine.startSession();
+  session.startTransaction();
+
   try {
-    const tontine = await Tontine.findById(req.params.id);
+    const tontine = await Tontine.findById(req.params.id).session(session);
 
     if (!tontine) {
+      await session.abortTransaction();
       return res.status(404).json({
         success: false,
         message: 'Tontine non trouvée'
       });
     }
 
-    if (tontine.statut === 'actif') {
-      return res.status(400).json({
-        success: false,
-        message: 'Impossible de supprimer une tontine active'
-      });
+    console.log(`🗑️ Début de la suppression complète de la tontine: ${tontine.nom}`);
+
+    // 1. Supprimer tous les tours associés à cette tontine
+    const toursDeleted = await Tour.deleteMany({ tontine: tontine._id }).session(session);
+    console.log(`✅ ${toursDeleted.deletedCount} tours supprimés`);
+
+    // 2. Supprimer toutes les cotisations associées à cette tontine
+    const contributionsDeleted = await Contribution.deleteMany({ tontine: tontine._id }).session(session);
+    console.log(`✅ ${contributionsDeleted.deletedCount} cotisations supprimées`);
+
+    // 3. Supprimer la banque associée à cette tontine
+    const banqueDeleted = await BanqueTontine.deleteMany({ tontine: tontine._id }).session(session);
+    console.log(`✅ ${banqueDeleted.deletedCount} banques supprimées`);
+
+    // 4. Supprimer tous les paiements de solidarité associés aux membres de cette tontine
+    // D'abord récupérer les IDs des membres de cette tontine
+    const membreIds = tontine.membres.map(m => m.membre);
+
+    if (membreIds.length > 0) {
+      // Supprimer les paiements de solidarité pour ces membres
+      const solidaritePaiementsDeleted = await PaiementSolidarite.deleteMany({
+        membre: { $in: membreIds }
+      }).session(session);
+      console.log(`✅ ${solidaritePaiementsDeleted.deletedCount} paiements de solidarité supprimés`);
+
+      // Supprimer les configurations de solidarité pour ces membres
+      const solidariteDeleted = await Solidarite.deleteMany({
+        membre: { $in: membreIds }
+      }).session(session);
+      console.log(`✅ ${solidariteDeleted.deletedCount} configurations de solidarité supprimées`);
+
+      // Supprimer les cartes CODEBAF associées à ces membres pour cette année
+      const cartesDeleted = await CarteCodebaf.deleteMany({
+        membre: { $in: membreIds },
+        annee: tontine.annee || new Date().getFullYear()
+      }).session(session);
+      console.log(`✅ ${cartesDeleted.deletedCount} cartes CODEBAF supprimées`);
     }
 
-    await tontine.deleteOne();
+    // 5. Supprimer la tontine elle-même
+    await Tontine.findByIdAndDelete(tontine._id).session(session);
+    console.log(`✅ Tontine supprimée: ${tontine.nom}`);
+
+    // Valider la transaction
+    await session.commitTransaction();
+    console.log(`🎉 Suppression complète terminée avec succès`);
 
     res.json({
       success: true,
-      message: 'Tontine supprimée avec succès'
+      message: `Tontine "${tontine.nom}" et toutes ses données associées supprimées avec succès`,
+      details: {
+        toursSupprimes: toursDeleted.deletedCount,
+        cotisationsSupprimees: contributionsDeleted.deletedCount,
+        banquesSupprimees: banqueDeleted.deletedCount,
+        paiementsSolidariteSupprimes: membreIds.length > 0 ? 'Supprimés pour les membres de la tontine' : 0,
+        cartesCodebafSupprimees: membreIds.length > 0 ? 'Supprimées pour les membres de la tontine' : 0
+      }
     });
+
   } catch (error) {
+    await session.abortTransaction();
+    console.error('❌ Erreur lors de la suppression complète:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur lors de la suppression de la tontine',
+      message: 'Erreur lors de la suppression complète de la tontine',
       error: error.message
     });
+  } finally {
+    session.endSession();
   }
 });
 
