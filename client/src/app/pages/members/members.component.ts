@@ -13,6 +13,7 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatChipsModule } from '@angular/material/chips';
 import { MemberService } from '../../services/member.service';
+import { MemberFilterComponent } from '../../shared/member-filter.component';
 import { Member } from '../../models';
 
 @Component({
@@ -22,6 +23,7 @@ import { Member } from '../../models';
     CommonModule,
     ReactiveFormsModule,
     RouterLink,
+    MemberFilterComponent,
     MatCardModule,
     MatButtonModule,
     MatIconModule,
@@ -44,6 +46,10 @@ import { Member } from '../../models';
           <mat-icon>add</mat-icon>
           Ajouter un Membre
         </button>
+      </div>
+
+      <div class="filter-row">
+        <app-member-filter (search)="onSearch($event)" (memberSelected)="onMemberSelected($event)"></app-member-filter>
       </div>
 
       @if (showForm()) {
@@ -586,6 +592,7 @@ export class MembersComponent implements OnInit {
   private memberService = inject(MemberService);
   private fb = inject(FormBuilder);
   private snackBar = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
 
   members = signal<Member[]>([]);
   showForm = signal(false);
@@ -606,6 +613,26 @@ export class MembersComponent implements OnInit {
 
   ngOnInit() {
     this.loadMembers();
+  }
+
+  onSearch(query: string) {
+    if (!query) {
+      this.loadMembers();
+      return;
+    }
+    this.memberService.getMembers(query).subscribe(res => {
+      if (res.success && res.data) this.members.set(res.data);
+    });
+  }
+
+  onMemberSelected(memberId: string | null) {
+    if (!memberId) {
+      this.loadMembers();
+      return;
+    }
+    this.memberService.getMember(memberId).subscribe(res => {
+      if (res.success && res.data) this.members.set([res.data]);
+    });
   }
 
   loadMembers() {
@@ -678,16 +705,32 @@ export class MembersComponent implements OnInit {
   }
 
   deleteMember(member: Member) {
-    if (confirm(`Voulez-vous vraiment supprimer ${member.nom} ${member.prenom} ?`)) {
-      this.memberService.deleteMember(member._id).subscribe({
-        next: (response) => {
-          this.snackBar.open('Membre supprimé avec succès !', 'Fermer', { duration: 3000 });
-          this.loadMembers();
-        },
-        error: (error) => {
-          this.snackBar.open('Erreur lors de la suppression', 'Fermer', { duration: 3000 });
+    (async () => {
+      const { ConfirmDialogComponent } = await import('../../shared/confirm-dialog.component');
+      const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+        width: '520px',
+        data: {
+          title: 'Supprimer le membre',
+          message: `Voulez-vous vraiment supprimer ${member.nom} ${member.prenom} ?`,
+          confirmLabel: 'Supprimer',
+          cancelLabel: 'Annuler',
+          requireReason: false
         }
+      } as any);
+
+      dialogRef.afterClosed().subscribe((result: any) => {
+        if (!result || !result.confirmed) return;
+
+        this.memberService.deleteMember(member._id).subscribe({
+          next: (response) => {
+            this.snackBar.open('Membre supprimé avec succès !', 'Fermer', { duration: 3000 });
+            this.loadMembers();
+          },
+          error: (error) => {
+            this.snackBar.open('Erreur lors de la suppression', 'Fermer', { duration: 3000 });
+          }
+        });
       });
-    }
+    })();
   }
 }

@@ -17,6 +17,7 @@ import { BanqueService } from '../../services/banque.service';
 import { AuthService } from '../../services/auth.service';
 import { Tour, Tontine } from '../../models';
 import { TourFormComponent } from './tour-form.component';
+import { MemberFilterComponent } from '../../shared/member-filter.component';
 
 @Component({
   selector: 'app-tours',
@@ -34,6 +35,7 @@ import { TourFormComponent } from './tour-form.component';
     MatSelectModule,
     MatFormFieldModule,
     MatTooltipModule
+    ,MemberFilterComponent,
   ],
   template: `
     <div class="page-container">
@@ -84,6 +86,8 @@ import { TourFormComponent } from './tour-form.component';
                 <mat-option value="en_attente">En attente</mat-option>
               </mat-select>
             </mat-form-field>
+
+            <app-member-filter (memberSelected)="onMemberFilter($event)"></app-member-filter>
 
             @if (selectedTontineId()) {
               <div class="filter-info">
@@ -271,12 +275,22 @@ import { TourFormComponent } from './tour-form.component';
                           <mat-icon>replay</mat-icon>
                         </button>
                       }
-                      @if (tour.statut !== 'paye' && tour.statut !== 'refuse' && authService.hasRole('admin')) {
-                        <button mat-icon-button color="warn" 
-                                (click)="deleteTour(tour)"
-                                matTooltip="Supprimer">
-                          <mat-icon>delete</mat-icon>
-                        </button>
+                      @if (authService.hasRole('admin', 'tresorier')) {
+                        @if (tour.statut === 'paye') {
+                          <button mat-icon-button color="primary"
+                                  (click)="annulerPaiement(tour)"
+                                  matTooltip="Annuler le paiement">
+                            <mat-icon>undo</mat-icon>
+                          </button>
+                        }
+
+                        @if (tour.statut !== 'paye' && tour.statut !== 'refuse' && authService.hasRole('admin')) {
+                          <button mat-icon-button color="warn" 
+                                  (click)="deleteTour(tour)"
+                                  matTooltip="Supprimer">
+                            <mat-icon>delete</mat-icon>
+                          </button>
+                        }
                       }
                     </div>
                   }
@@ -677,6 +691,7 @@ export class ToursComponent implements OnInit {
 
   selectedTontineId = signal<string | null>(null);
   selectedStatut = signal<string | null>(null);
+  selectedMemberId = signal<string | null>(null);
 
   displayedColumns = ['cycle', 'numeroTour', 'beneficiaire', 'tontine', 'montant', 'mode', 'date', 'dateReception', 'statut', 'actions'];
 
@@ -694,6 +709,15 @@ export class ToursComponent implements OnInit {
     const statut = this.selectedStatut();
     if (statut) {
       filtered = filtered.filter(t => t.statut === statut);
+    }
+
+    const memberId = this.selectedMemberId();
+    if (memberId) {
+      filtered = filtered.filter(t => {
+        if (!t.beneficiaire) return false;
+        const bId = typeof t.beneficiaire === 'string' ? t.beneficiaire : t.beneficiaire._id;
+        return bId === memberId;
+      });
     }
 
     // Trier par cycle puis par numéro de tour croissant
@@ -735,6 +759,10 @@ export class ToursComponent implements OnInit {
   ngOnInit() {
     this.loadTontines();
     this.loadTours();
+  }
+
+  onMemberFilter(memberId: string | null) {
+    this.selectedMemberId.set(memberId);
   }
 
   loadTontines() {
@@ -793,64 +821,138 @@ export class ToursComponent implements OnInit {
     });
   }
 
-  markAsRefused(tour: Tour) {
-    const raison = prompt('Raison du refus (optionnel):');
-    
-    if (raison === null) return; // L'utilisateur a annulé
-    
-    // Récupérer l'ID de la tontine
-    const tontineId = typeof tour.tontine === 'string' ? tour.tontine : tour.tontine._id;
-    
-    // Enregistrer le refus dans la banque (ce qui met aussi à jour le statut du tour)
-    this.banqueService.enregistrerRefusTour(tontineId, tour._id, raison || undefined).subscribe({
-      next: (response) => {
-        this.snackBar.open('Tour marqué comme refusé - Banque mise à jour', 'Fermer', { duration: 3000 });
-        this.loadTours();
-      },
-      error: (error) => {
-        const message = error.error?.message || 'Erreur lors du refus';
-        this.snackBar.open(message, 'Fermer', { duration: 3000 });
+  async markAsRefused(tour: Tour) {
+    const { ConfirmDialogComponent } = await import('../../shared/confirm-dialog.component');
+
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '520px',
+      data: {
+        title: 'Confirmer le refus',
+        message: 'Veuillez confirmer le refus du tour. Vous pouvez saisir une raison (optionnelle).',
+        confirmLabel: 'Refuser',
+        cancelLabel: 'Annuler',
+        requireReason: false
       }
+    } as any);
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (!result || !result.confirmed) return;
+
+      const raison = result.reason;
+      const tontineId = typeof tour.tontine === 'string' ? tour.tontine : tour.tontine._id;
+
+      this.banqueService.enregistrerRefusTour(tontineId, tour._id, raison || undefined).subscribe({
+        next: (response) => {
+          this.snackBar.open('Tour marqué comme refusé - Banque mise à jour', 'Fermer', { duration: 3000 });
+          this.loadTours();
+        },
+        error: (error) => {
+          const message = error.error?.message || 'Erreur lors du refus';
+          this.snackBar.open(message, 'Fermer', { duration: 3000 });
+        }
+      });
     });
   }
 
-  cancelRefusal(tour: Tour, nouveauStatut: 'attribue' | 'paye') {
+  async cancelRefusal(tour: Tour, nouveauStatut: 'attribue' | 'paye') {
     const action = nouveauStatut === 'paye' ? 'payer ce tour' : 'remettre ce tour en attente';
-    
-    if (!confirm(`Le membre a changé d'avis. Voulez-vous ${action} ?`)) {
-      return;
-    }
-    
-    const tontineId = typeof tour.tontine === 'string' ? tour.tontine : tour.tontine._id;
-    
-    this.banqueService.annulerRefusTour(tontineId, tour._id, nouveauStatut).subscribe({
-      next: (response) => {
-        const message = nouveauStatut === 'paye' 
-          ? 'Tour maintenant payé - Refus annulé' 
-          : 'Tour remis en attente - Refus annulé';
-        this.snackBar.open(message, 'Fermer', { duration: 3000 });
-        this.loadTours();
-      },
-      error: (error) => {
-        const message = error.error?.message || 'Erreur lors de l\'annulation du refus';
-        this.snackBar.open(message, 'Fermer', { duration: 3000 });
+
+    const { ConfirmDialogComponent } = await import('../../shared/confirm-dialog.component');
+
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '480px',
+      data: {
+        title: 'Confirmer le changement',
+        message: `Le membre a changé d'avis. Voulez-vous ${action} ?`,
+        confirmLabel: 'Oui',
+        cancelLabel: 'Non'
       }
+    } as any);
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (!result || !result.confirmed) return;
+
+      const tontineId = typeof tour.tontine === 'string' ? tour.tontine : tour.tontine._id;
+
+      this.banqueService.annulerRefusTour(tontineId, tour._id, nouveauStatut).subscribe({
+        next: (response) => {
+          const message = nouveauStatut === 'paye' 
+            ? 'Tour maintenant payé - Refus annulé' 
+            : 'Tour remis en attente - Refus annulé';
+          this.snackBar.open(message, 'Fermer', { duration: 3000 });
+          this.loadTours();
+        },
+        error: (error) => {
+          const message = error.error?.message || 'Erreur lors de l\'annulation du refus';
+          this.snackBar.open(message, 'Fermer', { duration: 3000 });
+        }
+      });
     });
   }
 
-  deleteTour(tour: Tour) {
-    if (confirm(`Êtes-vous sûr de vouloir supprimer ce tour ?`)) {
+  async deleteTour(tour: Tour) {
+    const isPaye = tour.statut === 'paye';
+    const message = isPaye
+      ? 'Ce tour est marqué comme payé. La suppression retirera également les enregistrements de paiement associés. Voulez-vous continuer ?'
+      : 'Êtes-vous sûr de vouloir supprimer ce tour ?';
+    const { ConfirmDialogComponent } = await import('../../shared/confirm-dialog.component');
+
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '520px',
+      data: {
+        title: 'Confirmer la suppression',
+        message,
+        confirmLabel: 'Supprimer',
+        cancelLabel: 'Annuler',
+        requireReason: false
+      }
+    } as any);
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (!result || !result.confirmed) return;
+
       this.tourService.deleteTour(tour._id).subscribe({
         next: () => {
           this.snackBar.open('Tour supprimé avec succès', 'Fermer', { duration: 3000 });
           this.loadTours();
         },
         error: (error) => {
-          const message = error.error?.message || 'Erreur lors de la suppression';
-          this.snackBar.open(message, 'Fermer', { duration: 3000 });
+          const errMsg = error.error?.message || 'Erreur lors de la suppression';
+          this.snackBar.open(errMsg, 'Fermer', { duration: 3000 });
         }
       });
-    }
+    });
+  }
+
+  async annulerPaiement(tour: Tour) {
+    const { ConfirmDialogComponent } = await import('../../shared/confirm-dialog.component');
+
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '520px',
+      data: {
+        title: 'Annuler le paiement',
+        message: 'Confirmez-vous l\'annulation du paiement pour ce tour ? Cette action remettra le statut à "attribue".',
+        confirmLabel: 'Annuler le paiement',
+        cancelLabel: 'Annuler'
+      }
+    } as any);
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (!result || !result.confirmed) return;
+
+      const tontineId = typeof tour.tontine === 'string' ? tour.tontine : tour.tontine._id;
+
+      this.banqueService.annulerPaiementTour(tontineId, tour._id).subscribe({
+        next: (response) => {
+          this.snackBar.open('Paiement annulé avec succès', 'Fermer', { duration: 3000 });
+          this.loadTours();
+        },
+        error: (error) => {
+          const message = error.error?.message || 'Erreur lors de l\'annulation du paiement';
+          this.snackBar.open(message, 'Fermer', { duration: 4000 });
+        }
+      });
+    });
   }
 
   getMemberInitials(member: any): string {

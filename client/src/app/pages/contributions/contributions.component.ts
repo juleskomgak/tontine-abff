@@ -13,12 +13,14 @@ import { MatTableModule } from '@angular/material/table';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ContributionService } from '../../services/contribution.service';
 import { TontineService } from '../../services/tontine.service';
 import { MemberService } from '../../services/member.service';
 import { TourService } from '../../services/tour.service';
 import { AuthService } from '../../services/auth.service';
 import { Contribution, Tontine, Member, Tour } from '../../models';
+import { MemberFilterComponent } from '../../shared/member-filter.component';
 
 @Component({
   selector: 'app-contributions',
@@ -38,6 +40,8 @@ import { Contribution, Tontine, Member, Tour } from '../../models';
     MatChipsModule,
     MatSnackBarModule,
     MatProgressSpinnerModule
+    ,MemberFilterComponent,
+    MatDialogModule
   ],
   template: `
     <div class="page-container">
@@ -189,6 +193,9 @@ import { Contribution, Tontine, Member, Tour } from '../../models';
 
       <mat-card class="table-card">
         <mat-card-content>
+          <div class="filter-row" style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+            <app-member-filter (memberSelected)="onMemberFilter($event)"></app-member-filter>
+          </div>
           @if (contributions().length === 0) {
             <div class="empty-state">
               <mat-icon>receipt_long</mat-icon>
@@ -197,7 +204,7 @@ import { Contribution, Tontine, Member, Tour } from '../../models';
             </div>
           } @else {
             <div class="table-container">
-              <table mat-table [dataSource]="contributions()" class="contributions-table">
+              <table mat-table [dataSource]="filteredContributions()" class="contributions-table">
                 <ng-container matColumnDef="date">
                   <th mat-header-cell *matHeaderCellDef>Date</th>
                   <td mat-cell *matCellDef="let contrib">{{ formatDate(contrib.datePaiement) }}</td>
@@ -469,6 +476,7 @@ import { Contribution, Tontine, Member, Tour } from '../../models';
 })
 export class ContributionsComponent implements OnInit {
   authService = inject(AuthService);
+  private dialog = inject(MatDialog);
   private contributionService = inject(ContributionService);
   private tontineService = inject(TontineService);
   private memberService = inject(MemberService);
@@ -477,6 +485,7 @@ export class ContributionsComponent implements OnInit {
   private snackBar = inject(MatSnackBar);
 
   contributions = signal<Contribution[]>([]);
+  selectedMemberId = signal<string | null>(null);
   tontines = signal<Tontine[]>([]);
   members = signal<Member[]>([]);
   tours = signal<Tour[]>([]);
@@ -540,6 +549,19 @@ export class ContributionsComponent implements OnInit {
     this.loadContributions();
     this.loadTontines();
     this.loadMembers();
+  }
+
+  filteredContributions = computed(() => {
+    const memberId = this.selectedMemberId();
+    if (!memberId) return this.contributions();
+    return this.contributions().filter(c => {
+      const cId = typeof c.membre === 'string' ? c.membre : (c.membre as any)?._id;
+      return cId === memberId;
+    });
+  });
+
+  onMemberFilter(memberId: string | null) {
+    this.selectedMemberId.set(memberId);
   }
 
   loadContributions() {
@@ -685,8 +707,23 @@ export class ContributionsComponent implements OnInit {
     }
   }
 
-  deleteContribution(contrib: Contribution) {
-    if (confirm('Voulez-vous vraiment supprimer cette cotisation ?')) {
+  async deleteContribution(contrib: Contribution) {
+    const { ConfirmDialogComponent } = await import('../../shared/confirm-dialog.component');
+
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '520px',
+      data: {
+        title: 'Confirmer la suppression',
+        message: 'Voulez-vous vraiment supprimer cette cotisation ?',
+        confirmLabel: 'Supprimer',
+        cancelLabel: 'Annuler',
+        requireReason: false
+      }
+    } as any);
+
+    dialogRef.afterClosed().subscribe((result: any) => {
+      if (!result || !result.confirmed) return;
+
       this.contributionService.deleteContribution(contrib._id).subscribe({
         next: (response) => {
           this.snackBar.open('Cotisation supprimée avec succès !', 'Fermer', { duration: 3000 });
@@ -696,7 +733,7 @@ export class ContributionsComponent implements OnInit {
           this.snackBar.open('Erreur lors de la suppression', 'Fermer', { duration: 3000 });
         }
       });
-    }
+    });
   }
 
   getModePaiementLabel(mode: string): string {

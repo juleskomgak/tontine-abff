@@ -405,6 +405,81 @@ router.post('/tontine/:tontineId/annuler-refus', authorize('admin', 'tresorier')
   }
 });
 
+// @route   POST /api/banque/tontine/:tontineId/annuler-paiement
+// @desc    Annuler (rollback) un paiement de tour — inverse la transaction et met le tour à "attribue"
+// @access  Private (Admin, Trésorier)
+router.post('/tontine/:tontineId/annuler-paiement', authorize('admin', 'tresorier'), async (req, res) => {
+  try {
+    const { tourId } = req.body;
+
+    if (!tourId) {
+      return res.status(400).json({ success: false, message: 'Paramètre tourId requis' });
+    }
+
+    const tour = await Tour.findById(tourId).populate('beneficiaire', 'nom prenom');
+    if (!tour) {
+      return res.status(404).json({ success: false, message: 'Tour non trouvé' });
+    }
+
+    if (tour.statut !== 'paye') {
+      return res.status(400).json({ success: false, message: 'Ce tour n\'est pas marqué comme payé' });
+    }
+
+    let banque = await BanqueTontine.findOne({ tontine: req.params.tontineId });
+    if (!banque) {
+      return res.status(404).json({ success: false, message: 'Banque non trouvée' });
+    }
+
+    // Chercher la transaction de paiement liée à ce tour
+    const txIndex = banque.transactions.findIndex(
+      t => t.type === 'paiement_tour' && t.tour && t.tour.toString() === tourId.toString()
+    );
+
+    if (txIndex === -1) {
+      return res.status(404).json({ success: false, message: 'Transaction de paiement introuvable pour ce tour' });
+    }
+
+    const paiementTx = banque.transactions[txIndex];
+    const montant = Math.abs(paiementTx.montant || tour.montantRecu || 0);
+
+    // Retirer la transaction de paiement
+    banque.transactions.splice(txIndex, 1);
+
+    // Ajouter une transaction d'ajustement pour garder la trace de l'annulation
+    banque.transactions.push({
+      type: 'ajustement',
+      montant: montant,
+      description: `Annulation du paiement du tour à ${tour.beneficiaire.nom} ${tour.beneficiaire.prenom}`,
+      tour: tourId,
+      membre: tour.beneficiaire._id,
+      date: new Date(),
+      effectuePar: req.user.id
+    });
+
+    // Ajuster les soldes
+    banque.soldeCotisations = (banque.soldeCotisations || 0) + montant;
+    banque.totalDistribue = Math.max(0, (banque.totalDistribue || 0) - montant);
+
+    // Mettre le statut du tour en 'attribue' et enlever la date de paiement
+    tour.statut = 'attribue';
+    if (tour.datePaiement) tour.datePaiement = undefined;
+    tour.notes = `Paiement annulé par ${req.user.nom || req.user.id}`;
+
+    await tour.save();
+    await banque.save();
+
+    await banque.populate([
+      { path: 'tontine', select: 'nom montantCotisation' },
+      { path: 'transactions.effectuePar', select: 'nom prenom' }
+    ]);
+
+    res.json({ success: true, message: 'Paiement du tour annulé avec succès', data: banque });
+  } catch (error) {
+    console.error('Erreur annuler-paiement:', error);
+    res.status(500).json({ success: false, message: 'Erreur lors de l\'annulation du paiement', error: error.message });
+  }
+});
+
 // @route   POST /api/banque/tontine/:tontineId/redistribuer
 // @desc    Redistribuer les fonds des tours refusés
 // @access  Private (Admin)

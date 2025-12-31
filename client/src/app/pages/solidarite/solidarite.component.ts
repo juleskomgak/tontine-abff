@@ -10,6 +10,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog } from '@angular/material/dialog';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -20,6 +21,7 @@ import { SolidariteService, SolidariteConfig, PaiementSolidarite, MembreSolidari
 import { MemberService } from '../../services/member.service';
 import { AuthService } from '../../services/auth.service';
 import { Member } from '../../models';
+import { MemberFilterComponent } from '../../shared/member-filter.component';
 
 @Component({
   selector: 'app-solidarite',
@@ -42,6 +44,7 @@ import { Member } from '../../models';
     MatTooltipModule,
     MatSlideToggleModule,
     MatProgressBarModule
+    ,MemberFilterComponent
   ],
   template: `
     <div class="page-container">
@@ -156,6 +159,7 @@ import { Member } from '../../models';
                       <mat-option value="en_retard">En retard</mat-option>
                     </mat-select>
                   </mat-form-field>
+                  <app-member-filter (memberSelected)="onMemberFilter($event)"></app-member-filter>
                 </div>
               </mat-card-content>
             </mat-card>
@@ -1245,6 +1249,7 @@ export class SolidariteComponent implements OnInit {
   private solidariteService = inject(SolidariteService);
   private memberService = inject(MemberService);
   private authService = inject(AuthService);
+  private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
 
   // États
@@ -1269,6 +1274,7 @@ export class SolidariteComponent implements OnInit {
   stats = this.solidariteService.stats;
   membres = signal<Member[]>([]);
   membreDetail = signal<MembreDetailStatut | null>(null);
+  selectedMemberId = signal<string | null>(null);
 
   // Formulaire paiement
   paiementForm = {
@@ -1344,6 +1350,14 @@ export class SolidariteComponent implements OnInit {
       result = result.filter(s => 
         Object.values(s.solidarites).some(sol => sol.statut === 'en_retard')
       );
+    }
+    const memberId = this.selectedMemberId();
+    if (memberId) {
+      result = result.filter(s => {
+        const m = s.membre;
+        if (!m) return false;
+        return typeof m === 'string' ? m === memberId : m._id === memberId;
+      });
     }
     
     return result;
@@ -1422,6 +1436,7 @@ export class SolidariteComponent implements OnInit {
     const filters: any = { annee: this.selectedAnnee };
     if (this.paiementFilterType) filters.typeSolidarite = this.paiementFilterType;
     if (this.paiementFilterMois) filters.mois = this.paiementFilterMois;
+    if (this.selectedMemberId()) filters.membre = this.selectedMemberId();
     this.solidariteService.getPaiements(filters).subscribe();
   }
 
@@ -1429,6 +1444,12 @@ export class SolidariteComponent implements OnInit {
     if (event.index === 1) {
       this.loadPaiements();
     }
+  }
+
+  onMemberFilter(memberId: string | null) {
+    this.selectedMemberId.set(memberId);
+    // refresh paiements when filter changes
+    this.loadPaiements();
   }
 
   initConfigs() {
@@ -1579,18 +1600,32 @@ export class SolidariteComponent implements OnInit {
     });
   }
 
-  deletePaiement(id: string) {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce paiement ?')) return;
-
-    this.solidariteService.deletePaiement(id).subscribe({
-      next: () => {
-        this.snackBar.open('Paiement supprimé', 'OK', { duration: 3000 });
-        this.loadPaiements();
-        this.loadData();
-      },
-      error: () => {
-        this.snackBar.open('Erreur lors de la suppression', 'OK', { duration: 3000 });
+  async deletePaiement(id: string) {
+    const { ConfirmDialogComponent } = await import('../../shared/confirm-dialog.component');
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '520px',
+      data: {
+        title: 'Supprimer le paiement',
+        message: 'Êtes-vous sûr de vouloir supprimer ce paiement ?',
+        confirmLabel: 'Supprimer',
+        cancelLabel: 'Annuler',
+        requireReason: false
       }
+    } as any);
+
+    dialogRef.afterClosed().subscribe((result: any) => {
+      if (!result || !result.confirmed) return;
+
+      this.solidariteService.deletePaiement(id).subscribe({
+        next: () => {
+          this.snackBar.open('Paiement supprimé', 'OK', { duration: 3000 });
+          this.loadPaiements();
+          this.loadData();
+        },
+        error: () => {
+          this.snackBar.open('Erreur lors de la suppression', 'OK', { duration: 3000 });
+        }
+      });
     });
   }
 

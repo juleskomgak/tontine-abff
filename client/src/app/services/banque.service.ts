@@ -47,6 +47,13 @@ export class BanqueService {
     );
   }
 
+  annulerPaiementTour(tontineId: string, tourId: string): Observable<ApiResponse<BanqueCentrale>> {
+    return this.http.post<ApiResponse<BanqueCentrale>>(
+      `${this.apiUrl}/tontine/${tontineId}/annuler-paiement`,
+      { tourId }
+    );
+  }
+
   redistribuerFonds(
     tontineId: string, 
     beneficiaires: Array<{ membreId: string, montant: number }>

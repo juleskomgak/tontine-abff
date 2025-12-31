@@ -14,6 +14,7 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatDialog } from '@angular/material/dialog';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatMenuModule } from '@angular/material/menu';
@@ -922,6 +923,7 @@ import { User } from '../../models';
 export class UsersComponent implements OnInit {
   private userService = inject(UserService);
   private authService = inject(AuthService);
+  private dialog = inject(MatDialog);
   private fb = inject(FormBuilder);
   private snackBar = inject(MatSnackBar);
 
@@ -1045,8 +1047,22 @@ export class UsersComponent implements OnInit {
     }
   }
 
-  validateUser(user: User) {
-    if (confirm(`Valider le compte de ${user.nom} ${user.prenom} ?\n\nCet utilisateur pourra se connecter à l'application.`)) {
+  async validateUser(user: User) {
+    const { ConfirmDialogComponent } = await import('../../shared/confirm-dialog.component');
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '520px',
+      data: {
+        title: 'Valider le compte',
+        message: `Valider le compte de ${user.nom} ${user.prenom} ?\n\nCet utilisateur pourra se connecter à l'application.`,
+        confirmLabel: 'Valider',
+        cancelLabel: 'Annuler',
+        requireReason: false
+      }
+    } as any);
+
+    dialogRef.afterClosed().subscribe((result: any) => {
+      if (!result || !result.confirmed) return;
+
       this.userService.validateUser(user._id).subscribe({
         next: () => {
           this.snackBar.open(`Compte de ${user.nom} ${user.prenom} validé avec succès !`, 'Fermer', { duration: 3000 });
@@ -1057,11 +1073,25 @@ export class UsersComponent implements OnInit {
           this.snackBar.open(msg, 'Fermer', { duration: 3000 });
         }
       });
-    }
+    });
   }
 
-  invalidateUser(user: User) {
-    if (confirm(`Révoquer la validation du compte de ${user.nom} ${user.prenom} ?\n\nCet utilisateur ne pourra plus se connecter.`)) {
+  async invalidateUser(user: User) {
+    const { ConfirmDialogComponent } = await import('../../shared/confirm-dialog.component');
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '520px',
+      data: {
+        title: 'Révoquer la validation',
+        message: `Révoquer la validation du compte de ${user.nom} ${user.prenom} ?\n\nCet utilisateur ne pourra plus se connecter.`,
+        confirmLabel: 'Révoquer',
+        cancelLabel: 'Annuler',
+        requireReason: false
+      }
+    } as any);
+
+    dialogRef.afterClosed().subscribe((result: any) => {
+      if (!result || !result.confirmed) return;
+
       this.userService.invalidateUser(user._id).subscribe({
         next: () => {
           this.snackBar.open(`Validation du compte de ${user.nom} ${user.prenom} révoquée`, 'Fermer', { duration: 3000 });
@@ -1072,13 +1102,27 @@ export class UsersComponent implements OnInit {
           this.snackBar.open(msg, 'Fermer', { duration: 3000 });
         }
       });
-    }
+    });
   }
 
-  changeRole(user: User, newRole: string) {
+  async changeRole(user: User, newRole: string) {
     if (user.role === newRole) return;
-    
-    if (confirm(`Changer le rôle de ${user.nom} ${user.prenom} en "${this.getRoleLabel(newRole)}" ?`)) {
+
+    const { ConfirmDialogComponent } = await import('../../shared/confirm-dialog.component');
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '520px',
+      data: {
+        title: 'Changer le rôle',
+        message: `Changer le rôle de ${user.nom} ${user.prenom} en "${this.getRoleLabel(newRole)}" ?`,
+        confirmLabel: 'Changer',
+        cancelLabel: 'Annuler',
+        requireReason: false
+      }
+    } as any);
+
+    dialogRef.afterClosed().subscribe((result: any) => {
+      if (!result || !result.confirmed) return;
+
       this.userService.changeUserRole(user._id, newRole).subscribe({
         next: () => {
           this.snackBar.open(`Rôle mis à jour : ${this.getRoleLabel(newRole)}`, 'Fermer', { duration: 3000 });
@@ -1089,11 +1133,25 @@ export class UsersComponent implements OnInit {
           this.snackBar.open(msg, 'Fermer', { duration: 3000 });
         }
       });
-    }
+    });
   }
 
-  deleteUser(user: User) {
-    if (confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${user.nom} ${user.prenom} ?\n\nCette action est irréversible.`)) {
+  async deleteUser(user: User) {
+    const { ConfirmDialogComponent } = await import('../../shared/confirm-dialog.component');
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '520px',
+      data: {
+        title: 'Supprimer l\'utilisateur',
+        message: `Êtes-vous sûr de vouloir supprimer l'utilisateur ${user.nom} ${user.prenom} ?\n\nCette action est irréversible.`,
+        confirmLabel: 'Supprimer',
+        cancelLabel: 'Annuler',
+        requireReason: false
+      }
+    } as any);
+
+    dialogRef.afterClosed().subscribe((result: any) => {
+      if (!result || !result.confirmed) return;
+
       this.userService.deleteUser(user._id).subscribe({
         next: () => {
           this.snackBar.open('Utilisateur supprimé avec succès !', 'Fermer', { duration: 3000 });
@@ -1104,7 +1162,7 @@ export class UsersComponent implements OnInit {
           this.snackBar.open(msg, 'Fermer', { duration: 3000 });
         }
       });
-    }
+    });
   }
 
   getInitials(user: User): string {

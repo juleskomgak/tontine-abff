@@ -14,9 +14,12 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TourService } from '../../services/tour.service';
 import { TontineService } from '../../services/tontine.service';
 import { ContributionService } from '../../services/contribution.service';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { AuthService } from '../../services/auth.service';
 import { Tour, Tontine, Contribution } from '../../models';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { MemberFilterComponent } from '../../shared/member-filter.component';
 
 interface BeneficiaireDetail {
   tour: Tour;
@@ -44,6 +47,8 @@ interface BeneficiaireDetail {
     MatFormFieldModule,
     MatExpansionModule,
     MatTooltipModule
+    ,MemberFilterComponent,
+    MatDialogModule
   ],
   template: `
     <div class="page-container">
@@ -84,6 +89,8 @@ interface BeneficiaireDetail {
                 <mat-icon matPrefix>autorenew</mat-icon>
               </mat-form-field>
             }
+
+            <app-member-filter (memberSelected)="onMemberFilter($event)"></app-member-filter>
 
             @if (selectedTontineId()) {
               <button mat-raised-button color="primary" (click)="downloadPDF()">
@@ -301,12 +308,33 @@ interface BeneficiaireDetail {
                   </div>
                 }
 
-                <!-- Bouton de téléchargement individuel -->
-                <div class="panel-actions">
-                  <button mat-raised-button color="accent" (click)="downloadBeneficiairePDF(beneficiaire)">
-                    <mat-icon>picture_as_pdf</mat-icon>
-                    Télécharger le reçu
-                  </button>
+                <!-- Actions disponibles -->
+                <div class="actions-section">
+                  <h4 class="section-title">
+                    <mat-icon>settings</mat-icon>
+                    Actions
+                  </h4>
+                  <div class="actions-grid">
+                    <button mat-raised-button color="primary" (click)="downloadBeneficiairePDF(beneficiaire)">
+                      <mat-icon>picture_as_pdf</mat-icon>
+                      Télécharger le reçu
+                    </button>
+                    
+                    @if (authService.hasRole('admin') || authService.hasRole('tresorier')) {
+                      <button mat-stroked-button color="accent" (click)="markAsPaid(beneficiaire)" 
+                              [disabled]="beneficiaire.tour.statut === 'paye'">
+                        <mat-icon>check_circle</mat-icon>
+                        Marquer comme payé
+                      </button>
+                    }
+                    
+                    @if (authService.hasRole('admin')) {
+                      <button mat-stroked-button color="warn" (click)="deleteBeneficiaire(beneficiaire)">
+                        <mat-icon>delete</mat-icon>
+                        Supprimer le bénéficiaire
+                      </button>
+                    }
+                  </div>
                 </div>
               </div>
             </mat-expansion-panel>
@@ -804,10 +832,53 @@ interface BeneficiaireDetail {
       }
     }
 
-    .panel-actions {
-      margin-top: 20px;
-      display: flex;
-      justify-content: flex-end;
+    .actions-section {
+      background: white;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      margin-bottom: 24px;
+
+      .section-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 20px;
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text-primary);
+        border-bottom: 1px solid var(--border-color);
+
+        mat-icon {
+          color: #2563eb;
+        }
+      }
+
+      .actions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+        padding: 20px;
+
+        button {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          justify-content: center;
+          min-height: 44px;
+
+          mat-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+          }
+
+          &[disabled] {
+            opacity: 0.6;
+            cursor: not-allowed;
+          }
+        }
+      }
     }
 
     @media (max-width: 768px) {
@@ -838,11 +909,14 @@ export class BeneficiairesComponent implements OnInit {
   private tontineService = inject(TontineService);
   private contributionService = inject(ContributionService);
   private snackBar = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
+  authService = inject(AuthService);
 
   loading = signal(true);
   tours = signal<Tour[]>([]);
   tontines = signal<Tontine[]>([]);
   contributions = signal<Contribution[]>([]);
+  selectedMemberId = signal<string | null>(null);
 
   selectedTontineId = signal<string | null>(null);
   selectedCycle = signal<number | null>(null);
@@ -862,7 +936,14 @@ export class BeneficiairesComponent implements OnInit {
       return matchTontine && matchCycle;
     });
 
-    return filtered.map(tour => this.buildBeneficiaireDetail(tour));
+    const memberId = this.selectedMemberId();
+    const final = memberId ? filtered.filter(t => {
+      if (!t.beneficiaire) return false;
+      const bId = typeof t.beneficiaire === 'string' ? t.beneficiaire : t.beneficiaire._id;
+      return bId === memberId;
+    }) : filtered;
+
+    return final.map(tour => this.buildBeneficiaireDetail(tour));
   });
 
   selectedTontine = computed(() => {
@@ -903,6 +984,10 @@ export class BeneficiairesComponent implements OnInit {
     this.loadTontines();
     this.loadTours();
     this.loadContributions();
+  }
+
+  onMemberFilter(memberId: string | null) {
+    this.selectedMemberId.set(memberId);
   }
 
   loadTontines() {
@@ -1129,6 +1214,72 @@ export class BeneficiairesComponent implements OnInit {
     const fileName = `recu_${this.getMemberName(tour.beneficiaire).replace(/\s+/g, '_')}_cycle${tour.cycle}_${new Date().getTime()}.pdf`;
     doc.save(fileName);
     this.snackBar.open('Reçu téléchargé avec succès', 'Fermer', { duration: 3000 });
+  }
+
+  async deleteBeneficiaire(beneficiaire: BeneficiaireDetail) {
+    const tour = beneficiaire.tour;
+    const message = `Êtes-vous sûr de vouloir supprimer le bénéficiaire ${this.getMemberName(tour.beneficiaire)} pour le cycle ${tour.cycle} ? Cette action supprimera le tour associé.`;
+
+    const { ConfirmDialogComponent } = await import('../../shared/confirm-dialog.component');
+
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '520px',
+      data: {
+        title: 'Confirmer la suppression',
+        message,
+        confirmLabel: 'Supprimer',
+        cancelLabel: 'Annuler',
+        requireReason: false
+      }
+    } as any);
+
+    dialogRef.afterClosed().subscribe((result: any) => {
+      if (!result || !result.confirmed) return;
+
+      this.tourService.deleteTour(tour._id).subscribe({
+        next: () => {
+          this.snackBar.open('Bénéficiaire (tour) supprimé avec succès', 'Fermer', { duration: 3000 });
+          this.loadTours();
+        },
+        error: (error) => {
+          const msg = error.error?.message || 'Erreur lors de la suppression';
+          this.snackBar.open(msg, 'Fermer', { duration: 3000 });
+        }
+      });
+    });
+  }
+
+  async markAsPaid(beneficiaire: BeneficiaireDetail) {
+    const tour = beneficiaire.tour;
+    const message = `Êtes-vous sûr de vouloir marquer le bénéficiaire ${this.getMemberName(tour.beneficiaire)} comme payé ? Cette action mettra à jour le statut du tour et les transactions bancaires.`;
+
+    const { ConfirmDialogComponent } = await import('../../shared/confirm-dialog.component');
+
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '520px',
+      data: {
+        title: 'Confirmer le paiement',
+        message,
+        confirmLabel: 'Marquer comme payé',
+        cancelLabel: 'Annuler',
+        requireReason: false
+      }
+    } as any);
+
+    dialogRef.afterClosed().subscribe((result: any) => {
+      if (!result || !result.confirmed) return;
+
+      this.tourService.updateStatus(tour._id, 'paye').subscribe({
+        next: () => {
+          this.snackBar.open('Bénéficiaire marqué comme payé avec succès', 'Fermer', { duration: 3000 });
+          this.loadTours();
+        },
+        error: (error) => {
+          const msg = error.error?.message || 'Erreur lors de la mise à jour du statut';
+          this.snackBar.open(msg, 'Fermer', { duration: 3000 });
+        }
+      });
+    });
   }
 
   getMemberInitials(member: any): string {

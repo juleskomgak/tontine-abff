@@ -579,6 +579,7 @@ export class CartesCodebafComponent implements OnInit {
   private memberService = inject(MemberService);
   authService = inject(AuthService);
   private snackBar = inject(MatSnackBar);
+  private dialog = inject(MatDialog);
   private fb = inject(FormBuilder);
 
   loading = signal(false);
@@ -802,20 +803,36 @@ export class CartesCodebafComponent implements OnInit {
   }
 
   deleteCarte(carte: CarteCodebaf) {
-    if (confirm(`Êtes-vous sûr de vouloir supprimer la carte de ${this.getMemberName(carte.membre)} pour ${carte.annee}?`)) {
-      this.carteService.deleteCarte(carte._id).subscribe({
-        next: (response) => {
-          if (response.success) {
-            this.snackBar.open('Carte supprimée', 'Fermer', { duration: 3000 });
-            this.loadCartes();
-          }
-        },
-        error: (error) => {
-          const message = error.error?.message || 'Erreur lors de la suppression';
-          this.snackBar.open(message, 'Fermer', { duration: 3000 });
+    (async () => {
+      const { ConfirmDialogComponent } = await import('../../shared/confirm-dialog.component');
+      const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+        width: '520px',
+        data: {
+          title: 'Supprimer la carte',
+          message: `Êtes-vous sûr de vouloir supprimer la carte de ${this.getMemberName(carte.membre)} pour ${carte.annee}?`,
+          confirmLabel: 'Supprimer',
+          cancelLabel: 'Annuler',
+          requireReason: false
         }
+      } as any);
+
+      dialogRef.afterClosed().subscribe((result: any) => {
+        if (!result || !result.confirmed) return;
+
+        this.carteService.deleteCarte(carte._id).subscribe({
+          next: (response) => {
+            if (response.success) {
+              this.snackBar.open('Carte supprimée', 'Fermer', { duration: 3000 });
+              this.loadCartes();
+            }
+          },
+          error: (error) => {
+            const message = error.error?.message || 'Erreur lors de la suppression';
+            this.snackBar.open(message, 'Fermer', { duration: 3000 });
+          }
+        });
       });
-    }
+    })();
   }
 
   getMemberName(member: Member | string): string {
