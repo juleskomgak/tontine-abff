@@ -723,23 +723,131 @@ router.get('/tontine/:tontineId/statistiques', protect, async (req, res) => {
 });
 
 // @route   GET /api/banque
-// @desc    Obtenir toutes les banques
+// @desc    Obtenir toutes les banques (filtre les banques orphelines)
 // @access  Private (Admin)
 router.get('/', protect, authorize('admin'), async (req, res) => {
   try {
-    const banques = await BanqueTontine.find()
+    // Récupérer les IDs des tontines existantes
+    const tontines = await Tontine.find({}).select('_id');
+    const tontineIds = tontines.map(t => t._id);
+    
+    // Ne récupérer que les banques liées à des tontines existantes
+    const banques = await BanqueTontine.find({ tontine: { $in: tontineIds } })
       .populate('tontine', 'nom montantCotisation nombreMembres statut')
       .sort('-createdAt');
 
+    // Filtrer les banques dont la tontine n'a pas été populée (cas rare)
+    const banquesValides = banques.filter(b => b.tontine !== null);
+
     res.json({
       success: true,
-      count: banques.length,
-      data: banques
+      count: banquesValides.length,
+      data: banquesValides
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la récupération des banques',
+      error: error.message
+    });
+  }
+});
+
+// @route   POST /api/banque/nettoyer-orphelines
+// @desc    Supprimer les banques orphelines et recalculer les soldes
+// @access  Private (Admin)
+router.post('/nettoyer-orphelines', protect, authorize('admin'), async (req, res) => {
+  try {
+    // Récupérer les IDs des tontines existantes
+    const tontines = await Tontine.find({}).select('_id');
+    const tontineIds = tontines.map(t => t._id.toString());
+    
+    // Récupérer toutes les banques
+    const banquesTontine = await BanqueTontine.find({});
+    
+    let orphelinesSuprimees = 0;
+    let banquesRecalculees = 0;
+    
+    for (const banque of banquesTontine) {
+      const tontineIdStr = banque.tontine ? banque.tontine.toString() : null;
+      
+      if (!tontineIdStr || !tontineIds.includes(tontineIdStr)) {
+        // Banque orpheline - supprimer
+        await BanqueTontine.findByIdAndDelete(banque._id);
+        orphelinesSuprimees++;
+      } else {
+        // Recalculer les montants basés sur les tours
+        await recalculerMontantsBanque(banque.tontine);
+        banquesRecalculees++;
+      }
+    }
+    
+    // Nettoyer aussi les banques centrales orphelines
+    const banquesCentrale = await BanqueCentrale.find({ tontine: { $exists: true, $ne: null } });
+    let centralesOrphelinesSuprimees = 0;
+    
+    for (const banque of banquesCentrale) {
+      const tontineIdStr = banque.tontine.toString();
+      if (!tontineIds.includes(tontineIdStr)) {
+        await BanqueCentrale.findByIdAndDelete(banque._id);
+        centralesOrphelinesSuprimees++;
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: 'Nettoyage effectué avec succès',
+      data: {
+        orphelinesSuprimees,
+        centralesOrphelinesSuprimees,
+        banquesRecalculees
+      }
+    });
+  } catch (error) {
+    console.error('Erreur nettoyage orphelines:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors du nettoyage',
+      error: error.message
+    });
+  }
+});
+
+// @route   POST /api/banque/recalculer-toutes
+// @desc    Recalculer toutes les banques basées sur les tours
+// @access  Private (Admin)
+router.post('/recalculer-toutes', protect, authorize('admin'), async (req, res) => {
+  try {
+    const tontines = await Tontine.find({}).select('_id nom');
+    const resultats = [];
+    
+    for (const tontine of tontines) {
+      try {
+        const banque = await recalculerMontantsBanque(tontine._id);
+        resultats.push({
+          tontine: tontine.nom,
+          success: true,
+          soldeTotal: banque.soldeTotal,
+          totalCotise: banque.totalCotise
+        });
+      } catch (err) {
+        resultats.push({
+          tontine: tontine.nom,
+          success: false,
+          error: err.message
+        });
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: 'Recalcul effectué',
+      data: resultats
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors du recalcul',
       error: error.message
     });
   }

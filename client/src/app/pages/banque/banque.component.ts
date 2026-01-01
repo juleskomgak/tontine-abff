@@ -6,6 +6,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatButtonModule } from '@angular/material/button';
+import { MatMenuModule } from '@angular/material/menu';
 import { BanqueService } from '../../services/banque.service';
 import { TontineService } from '../../services/tontine.service';
 import { CarteCodebafService } from '../../services/carte-codebaf.service';
@@ -16,7 +18,7 @@ import { BanqueCentrale, Tontine, CarteCodebafStats } from '../../models';
 @Component({
   selector: 'app-banque',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatIconModule, MatSelectModule, MatFormFieldModule, MatSnackBarModule, MatProgressSpinnerModule],
+  imports: [CommonModule, MatCardModule, MatIconModule, MatSelectModule, MatFormFieldModule, MatSnackBarModule, MatProgressSpinnerModule, MatButtonModule, MatMenuModule],
   template: `
     <div class="banque-page-container">
       <div class="banque-page-header">
@@ -26,6 +28,21 @@ import { BanqueCentrale, Tontine, CarteCodebafStats } from '../../models';
             <h1 class="banque-h1">Banque centrale</h1>
             <p class="banque-subtitle">Monitoring centralise: Tontines, Solidarites et Cartes CODEBAF</p>
           </div>
+        </div>
+        <div class="banque-header-actions">
+          <button mat-icon-button [matMenuTriggerFor]="actionsMenu" aria-label="Actions">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #actionsMenu="matMenu">
+            <button mat-menu-item (click)="recalculerToutes()">
+              <mat-icon>refresh</mat-icon>
+              <span>Recalculer les soldes</span>
+            </button>
+            <button mat-menu-item (click)="nettoyerOrphelines()">
+              <mat-icon>cleaning_services</mat-icon>
+              <span>Nettoyer les données orphelines</span>
+            </button>
+          </mat-menu>
         </div>
       </div>
 
@@ -654,5 +671,46 @@ export class BanqueComponent implements OnInit {
   formatDate(date: Date | string | undefined): string {
     if (!date) return '-';
     return new Date(date).toLocaleDateString('fr-FR');
+  }
+
+  nettoyerOrphelines() {
+    if (!confirm('Êtes-vous sûr de vouloir nettoyer les données orphelines ? Cette action supprimera les banques liées à des tontines inexistantes.')) {
+      return;
+    }
+
+    this.banqueService.nettoyerOrphelines().subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          const data = response.data;
+          this.snackBar.open(
+            `Nettoyage terminé: ${data.orphelinesSuprimees} banques orphelines supprimées, ${data.banquesRecalculees} banques recalculées`,
+            'Fermer',
+            { duration: 5000 }
+          );
+          this.loadData();
+        }
+      },
+      error: (error) => {
+        this.snackBar.open('Erreur lors du nettoyage', 'Fermer', { duration: 3000 });
+      }
+    });
+  }
+
+  recalculerToutes() {
+    if (!confirm('Êtes-vous sûr de vouloir recalculer tous les soldes des banques ?')) {
+      return;
+    }
+
+    this.banqueService.recalculerToutes().subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.snackBar.open('Recalcul terminé avec succès', 'Fermer', { duration: 3000 });
+          this.loadData();
+        }
+      },
+      error: (error) => {
+        this.snackBar.open('Erreur lors du recalcul', 'Fermer', { duration: 3000 });
+      }
+    });
   }
 }

@@ -67,4 +67,18 @@ export class BanqueService {
   getAllBanques(): Observable<ApiResponse<BanqueCentrale[]>> {
     return this.http.get<ApiResponse<BanqueCentrale[]>>(this.apiUrl);
   }
+
+  nettoyerOrphelines(): Observable<ApiResponse<{orphelinesSuprimees: number, centralesOrphelinesSuprimees: number, banquesRecalculees: number}>> {
+    return this.http.post<ApiResponse<{orphelinesSuprimees: number, centralesOrphelinesSuprimees: number, banquesRecalculees: number}>>(
+      `${this.apiUrl}/nettoyer-orphelines`,
+      {}
+    );
+  }
+
+  recalculerToutes(): Observable<ApiResponse<any[]>> {
+    return this.http.post<ApiResponse<any[]>>(
+      `${this.apiUrl}/recalculer-toutes`,
+      {}
+    );
+  }
 }
