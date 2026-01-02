@@ -63,7 +63,10 @@
         <button mat-icon-button (click)="drawer.toggle()" class="menu-btn show-mobile">
           <mat-icon>menu</mat-icon>
         </button>
-        <span class="logo">🎯 {{ title }}</span>
+        <span class="logo">
+          <img src="https://img.freepik.com/photos-premium/investissement-dans-sacs-argent-png_53876-879962.jpg?semt=ais_hybrid&w=740&q=80" alt="Logo Tontine ABFF" class="logo-img">
+          {{ title }}
+        </span>
         <span class="spacer"></span>
         <ng-container class="hide-mobile">
           <button mat-button [routerLink]="['/dashboard']">

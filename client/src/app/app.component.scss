@@ -10,6 +10,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
+
+  .logo-img {
+    height: 40px;
+    width: auto;
+    object-fit: contain;
+    border-radius: 8px;
+  }
 }
 
 mat-toolbar {

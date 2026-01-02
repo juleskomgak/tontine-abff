@@ -6,6 +6,7 @@ const Tontine = require('./models/Tontine');
 const Contribution = require('./models/Contribution');
 const Tour = require('./models/Tour');
 const BanqueCentrale = require('./models/BanqueCentrale');
+const BanqueTontine = require('./models/BanqueTontine');
 
 const seedDatabase = async () => {
   try {
@@ -23,6 +24,7 @@ const seedDatabase = async () => {
     await Contribution.deleteMany({});
     await Tour.deleteMany({});
     await BanqueTontine.deleteMany({});
+    await BanqueCentrale.deleteMany({});
     console.log('🗑️  Données existantes supprimées');
 
     // Créer les utilisateurs

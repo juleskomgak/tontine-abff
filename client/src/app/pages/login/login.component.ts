@@ -28,7 +28,10 @@ import { AuthService } from '../../services/auth.service';
       <mat-card class="login-card">
         <mat-card-header>
           <mat-card-title>
-            <h1>🎯 Tontine ABFF</h1>
+            <div class="logo-header">
+              <img src="https://img.freepik.com/photos-premium/investissement-dans-sacs-argent-png_53876-879962.jpg?semt=ais_hybrid&w=740&q=80" alt="Logo Tontine ABFF" class="logo-img">
+              <h1>Tontine ABFF</h1>
+            </div>
             <p>Connexion à votre compte</p>
           </mat-card-title>
         </mat-card-header>
@@ -128,6 +131,21 @@ import { AuthService } from '../../services/auth.service';
       text-align: center;
       margin-bottom: 24px;
       padding: 40px 32px 0 32px;
+      
+      .logo-header {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        
+        .logo-img {
+          height: 80px;
+          width: auto;
+          object-fit: contain;
+          border-radius: 12px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+      }
       
       h1 {
         font-size: 2.8rem;
