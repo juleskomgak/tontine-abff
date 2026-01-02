@@ -300,11 +300,18 @@ router.post('/tontine/:tontineId/paiement-tour', protect, authorize('admin', 'tr
 });
 
 // @route   POST /api/banque/tontine/:tontineId/refus-tour
-// @desc    Enregistrer un refus de tour
+// @desc    Enregistrer un refus de tour - met le tour en statut "refuse"
 // @access  Private (Admin, Trésorier)
 router.post('/tontine/:tontineId/refus-tour', protect, authorize('admin', 'tresorier'), async (req, res) => {
   try {
     const { tourId, raison } = req.body;
+
+    if (!tourId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Paramètre tourId requis'
+      });
+    }
 
     let banque = await BanqueTontine.findOne({ tontine: req.params.tontineId });
     
@@ -323,10 +330,11 @@ router.post('/tontine/:tontineId/refus-tour', protect, authorize('admin', 'treso
       });
     }
 
-    if (tour.statut !== 'refuse') {
+    // Le tour doit être attribué ou payé pour être refusé
+    if (tour.statut !== 'attribue' && tour.statut !== 'paye') {
       return res.status(400).json({
         success: false,
-        message: 'Le tour doit être marqué comme refusé avant l\'enregistrement en banque'
+        message: `Impossible de refuser un tour avec le statut "${tour.statut}". Le tour doit être "attribué" ou "payé".`
       });
     }
 
@@ -334,7 +342,7 @@ router.post('/tontine/:tontineId/refus-tour', protect, authorize('admin', 'treso
     banque.toursRefuses.push({
       tour: tourId,
       beneficiaire: tour.beneficiaire._id,
-      montant: tour.montantRecu,
+      montant: tour.montantRecu || 0,
       dateRefus: new Date(),
       raison,
       cycle: tour.cycle
@@ -343,17 +351,19 @@ router.post('/tontine/:tontineId/refus-tour', protect, authorize('admin', 'treso
     // Ajouter la transaction
     banque.transactions.push({
       type: 'refus_tour',
-      montant: tour.montantRecu,
-      description: `Tour refusé par ${tour.beneficiaire.nom} ${tour.beneficiaire.prenom}`,
+      montant: tour.montantRecu || 0,
+      description: `Tour refusé par ${tour.beneficiaire.nom} ${tour.beneficiaire.prenom}${raison ? ' - ' + raison : ''}`,
       tour: tourId,
       membre: tour.beneficiaire._id,
       date: new Date(),
       effectuePar: req.user.id
     });
 
+    await banque.save();
+
     // Mettre à jour le statut du tour
     tour.statut = 'refuse';
-    tour.notes = raison;
+    tour.notes = raison || 'Tour refusé';
     await tour.save();
 
     // Recalculer automatiquement les montants
@@ -371,6 +381,7 @@ router.post('/tontine/:tontineId/refus-tour', protect, authorize('admin', 'treso
       data: banqueRecalculee
     });
   } catch (error) {
+    console.error('Erreur refus-tour:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de l\'enregistrement du refus',

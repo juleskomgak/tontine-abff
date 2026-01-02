@@ -44,9 +44,9 @@ app.use('/api/cartes-codebaf', require('./routes/cartes-codebaf'));
 app.get('/', (req, res) => {
   res.json({ 
     message: '🎉 Bienvenue sur l\'API de gestion de Tontine ABFF',
-    version: '1.0.2',
-    deployedAt: '2026-01-02T11:00:00Z',
-    features: ['calculerDateReceptionTour-v4', 'timezone-europe-fix'],
+    version: '1.0.3',
+    deployedAt: '2026-01-02T19:50:00Z',
+    features: ['calculerDateReceptionTour-v4', 'timezone-europe-fix', 'refus-tour-fix', 'annuler-paiement-fix'],
     endpoints: {
       auth: '/api/auth',
       users: '/api/users',
