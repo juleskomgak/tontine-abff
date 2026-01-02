@@ -36,6 +36,10 @@
           </a>
         }
         @if (authService.hasRole('admin', 'tresorier')) {
+          <a mat-list-item [routerLink]="['/aides']" (click)="drawer.close()">
+            <mat-icon>volunteer_activism</mat-icon>
+            <span>Aides aux membres</span>
+          </a>
           <a mat-list-item [routerLink]="['/cartes-codebaf']" (click)="drawer.close()">
             <mat-icon>card_membership</mat-icon>
             <span>Cartes CODEBAF</span>
@@ -102,6 +106,10 @@
             </button>
           }
           @if (authService.hasRole('admin', 'tresorier')) {
+            <button mat-button [routerLink]="['/aides']">
+              <mat-icon>volunteer_activism</mat-icon>
+              <span>Aides</span>
+            </button>
             <button mat-button [routerLink]="['/cartes-codebaf']">
               <mat-icon>card_membership</mat-icon>
               <span>Cartes CODEBAF</span>

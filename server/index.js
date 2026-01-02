@@ -39,14 +39,15 @@ app.use('/api/tours', require('./routes/tours'));
 app.use('/api/banque', require('./routes/banque'));
 app.use('/api/solidarites', require('./routes/solidarites'));
 app.use('/api/cartes-codebaf', require('./routes/cartes-codebaf'));
+app.use('/api/aides', require('./routes/aides'));
 
 // Welcome route
 app.get('/', (req, res) => {
   res.json({ 
     message: '🎉 Bienvenue sur l\'API de gestion de Tontine ABFF',
-    version: '1.0.3',
-    deployedAt: '2026-01-02T19:50:00Z',
-    features: ['calculerDateReceptionTour-v4', 'timezone-europe-fix', 'refus-tour-fix', 'annuler-paiement-fix'],
+    version: '1.0.4',
+    deployedAt: '2026-01-02T23:30:00Z',
+    features: ['calculerDateReceptionTour-v4', 'timezone-europe-fix', 'refus-tour-fix', 'annuler-paiement-fix', 'aides-membres'],
     endpoints: {
       auth: '/api/auth',
       users: '/api/users',
@@ -55,7 +56,8 @@ app.get('/', (req, res) => {
       contributions: '/api/contributions',
       tours: '/api/tours',
       banque: '/api/banque',
-      solidarites: '/api/solidarites'
+      solidarites: '/api/solidarites',
+      aides: '/api/aides'
     }
   });
 });
