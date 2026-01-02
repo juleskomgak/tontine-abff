@@ -596,13 +596,37 @@ export class BanqueComponent implements OnInit {
   cartesStats = signal<CarteCodebafStats | null>(null);
   solidariteStats = signal<any>(null);
 
-  // Filtrer les banques par année (côté client)
+  // Filtrer les banques par année basée sur la date de début de la tontine
   banques = computed(() => {
     const year = this.selectedYear();
+    const tontines = this.allTontines();
+    
     return this.allBanques().filter(banque => {
-      if (!banque.createdAt) return true;
-      const banqueYear = new Date(banque.createdAt).getFullYear();
-      return banqueYear === year;
+      // Vérifier si la tontine est déjà populée
+      if (typeof banque.tontine === 'object' && banque.tontine !== null) {
+        const tontine = banque.tontine as Tontine;
+        if (tontine.dateDebut) {
+          const tontineYear = new Date(tontine.dateDebut).getFullYear();
+          return tontineYear === year;
+        }
+      }
+      
+      // Si tontine est un string ID, chercher dans la liste des tontines
+      if (typeof banque.tontine === 'string') {
+        const tontine = tontines.find(t => t._id === banque.tontine);
+        if (tontine && tontine.dateDebut) {
+          const tontineYear = new Date(tontine.dateDebut).getFullYear();
+          return tontineYear === year;
+        }
+      }
+      
+      // Fallback : utiliser createdAt de la banque
+      if (banque.createdAt) {
+        const banqueYear = new Date(banque.createdAt).getFullYear();
+        return banqueYear === year;
+      }
+      
+      return true;
     });
   });
 
@@ -657,7 +681,14 @@ export class BanqueComponent implements OnInit {
       years.push(year);
     }
     this.availableYears.set(years.reverse());
-    this.selectedYear.set(currentYear);
+    // Par défaut, afficher l'année précédente si on est en début d'année (janvier/février)
+    const currentMonth = new Date().getMonth();
+    if (currentMonth <= 1) {
+      // En janvier ou février, afficher l'année précédente par défaut
+      this.selectedYear.set(currentYear - 1);
+    } else {
+      this.selectedYear.set(currentYear);
+    }
   }
 
   loadData() {
@@ -684,8 +715,8 @@ export class BanqueComponent implements OnInit {
       }
     });
 
-    // Charger les stats cartes CODEBAF avec l'année sélectionnée
-    this.carteCodebafService.getStatistiques(this.selectedYear()).subscribe({
+    // Charger les stats cartes CODEBAF
+    this.carteCodebafService.getStatistiques().subscribe({
       next: (response) => {
         if (response.success && response.data) {
           this.cartesStats.set(response.data);
@@ -694,7 +725,7 @@ export class BanqueComponent implements OnInit {
     });
 
     // Charger les stats solidarités
-    this.solidariteService.getStats(this.selectedYear()).subscribe({
+    this.solidariteService.getStats().subscribe({
       next: (response) => {
         if (response.success && response.data) {
           this.solidariteStats.set(response.data);
@@ -705,25 +736,6 @@ export class BanqueComponent implements OnInit {
       error: () => {
         this.loading.set(false);
         this.isInitialized = true;
-      }
-    });
-  }
-
-  // Méthode pour recharger uniquement les stats cartes et solidarités (quand l'année change)
-  loadCartesAndSolidariteStats(year: number) {
-    this.carteCodebafService.getStatistiques(year).subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          this.cartesStats.set(response.data);
-        }
-      }
-    });
-
-    this.solidariteService.getStats(year).subscribe({
-      next: (response) => {
-        if (response.success && response.data) {
-          this.solidariteStats.set(response.data);
-        }
       }
     });
   }
@@ -747,6 +759,26 @@ export class BanqueComponent implements OnInit {
   formatDate(date: Date | string | undefined): string {
     if (!date) return '-';
     return new Date(date).toLocaleDateString('fr-FR');
+  }
+
+  loadCartesAndSolidariteStats(year: number) {
+    // Charger les stats cartes CODEBAF
+    this.carteCodebafService.getStatistiques().subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          this.cartesStats.set(response.data);
+        }
+      }
+    });
+
+    // Charger les stats solidarités
+    this.solidariteService.getStats().subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          this.solidariteStats.set(response.data);
+        }
+      }
+    });
   }
 
   nettoyerOrphelines() {

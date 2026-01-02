@@ -539,23 +539,24 @@ router.post('/tontine/:tontineId/annuler-paiement', protect, authorize('admin', 
 
     let banque = await BanqueTontine.findOne({ tontine: req.params.tontineId });
     if (!banque) {
-      return res.status(404).json({ success: false, message: 'Banque non trouvée' });
+      // Créer la banque si elle n'existe pas
+      banque = new BanqueTontine({ tontine: req.params.tontineId });
     }
 
-    // Chercher la transaction de paiement liée à ce tour
+    // Chercher la transaction de paiement liée à ce tour (optionnel)
     const txIndex = banque.transactions.findIndex(
       t => t.type === 'paiement_tour' && t.tour && t.tour.toString() === tourId.toString()
     );
 
-    if (txIndex === -1) {
-      return res.status(404).json({ success: false, message: 'Transaction de paiement introuvable pour ce tour' });
+    // Utiliser le montant de la transaction si trouvée, sinon utiliser le montant du tour
+    let montant = tour.montantRecu || 0;
+    
+    if (txIndex !== -1) {
+      const paiementTx = banque.transactions[txIndex];
+      montant = Math.abs(paiementTx.montant || montant);
+      // Retirer la transaction de paiement
+      banque.transactions.splice(txIndex, 1);
     }
-
-    const paiementTx = banque.transactions[txIndex];
-    const montant = Math.abs(paiementTx.montant || tour.montantRecu || 0);
-
-    // Retirer la transaction de paiement
-    banque.transactions.splice(txIndex, 1);
 
     // Ajouter une transaction d'ajustement pour garder la trace de l'annulation
     banque.transactions.push({
@@ -568,9 +569,7 @@ router.post('/tontine/:tontineId/annuler-paiement', protect, authorize('admin', 
       effectuePar: req.user.id
     });
 
-    // Ajuster les soldes
-    banque.soldeCotisations = (banque.soldeCotisations || 0) + montant;
-    banque.totalDistribue = Math.max(0, (banque.totalDistribue || 0) - montant);
+    await banque.save();
 
     // Mettre le statut du tour en 'attribue' et enlever la date de paiement
     tour.statut = 'attribue';
