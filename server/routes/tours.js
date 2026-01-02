@@ -8,25 +8,74 @@ const BanqueCentrale = require('../models/BanqueCentrale');
 const Contribution = require('../models/Contribution');
 const { protect, authorize } = require('../middleware/auth');
 
-// Fonction utilitaire pour trouver le premier dimanche du mois d'une date donnée
-function getPremierDimancheDuMois(date) {
+// V4: Fonctions utilitaires pour le calcul des dates de réception
+// Gère correctement le décalage timezone Europe/Paris vs UTC
+
+// Extraire année, mois, jour en "temps local Europe" depuis une date UTC
+// Ex: 2025-05-31T22:00:00.000Z -> 2025, 5 (juin), 1 en Europe (UTC+2)
+function getDatePartsEurope(date) {
   const d = new Date(date);
+  // Ajouter 2h pour simuler Europe/Paris (approximation, couvre été+hiver)
+  const europeOffset = 2 * 60 * 60 * 1000; // 2 heures en ms
+  const europeDate = new Date(d.getTime() + europeOffset);
+  return {
+    annee: europeDate.getUTCFullYear(),
+    mois: europeDate.getUTCMonth(), // 0-indexed
+    jour: europeDate.getUTCDate()
+  };
+}
+
+// Trouver le premier dimanche d'un mois donné (année et mois en paramètres)
+function getPremierDimancheDuMoisPourAnneeEtMois(annee, mois) {
+  // Créer une date au 1er du mois à midi UTC
+  const premierDuMois = new Date(Date.UTC(annee, mois, 1, 12, 0, 0));
   
-  // Aller au 1er jour du mois
-  d.setDate(1);
-  
-  const jourSemaine = d.getDay(); // 0 = Dimanche, 1 = Lundi, ..., 6 = Samedi
+  const jourSemaine = premierDuMois.getUTCDay(); // 0 = Dimanche
   
   if (jourSemaine === 0) {
-    // Le 1er du mois est déjà un dimanche
-    return d;
+    return premierDuMois;
   }
   
-  // Calculer le nombre de jours jusqu'au premier dimanche du mois
+  // Calculer le premier dimanche
   const joursJusquAuDimanche = 7 - jourSemaine;
-  d.setDate(1 + joursJusquAuDimanche);
+  premierDuMois.setUTCDate(1 + joursJusquAuDimanche);
   
-  return d;
+  return premierDuMois;
+}
+
+// Calculer la date de réception pour un tour donné
+// Tour 1 = date de début, Tours suivants = premier dimanche du mois correspondant
+function calculerDateReceptionTour(dateDebutTontine, numeroTour, frequence) {
+  if (numeroTour === 1) {
+    return new Date(dateDebutTontine);
+  }
+  
+  // Extraire année/mois en "temps Europe" pour être cohérent avec ce que l'utilisateur voit
+  const { annee: anneeDebut, mois: moisDebut } = getDatePartsEurope(dateDebutTontine);
+  
+  let dateReception;
+  
+  switch (frequence) {
+    case 'hebdomadaire':
+      dateReception = new Date(dateDebutTontine);
+      dateReception.setDate(dateReception.getDate() + (numeroTour - 1) * 7);
+      break;
+    case 'bimensuel':
+      dateReception = new Date(dateDebutTontine);
+      dateReception.setDate(dateReception.getDate() + (numeroTour - 1) * 15);
+      break;
+    case 'mensuel':
+    default:
+      // Pour mensuel: mois de début + (numeroTour - 1) mois
+      const totalMois = moisDebut + (numeroTour - 1);
+      const anneeCible = anneeDebut + Math.floor(totalMois / 12);
+      const moisCible = totalMois % 12;
+      
+      dateReception = getPremierDimancheDuMoisPourAnneeEtMois(anneeCible, moisCible);
+      break;
+  }
+  
+  return dateReception;
 }
 
 // Fonction utilitaire pour recalculer le montant d'un tour
@@ -231,43 +280,8 @@ router.post('/', authorize('admin', 'tresorier'), [
       cycle: req.body.cycle
     }) + 1;
 
-    let dateReceptionPrevue;
-
-    // Trouver le tour 1 du cycle comme référence
-    const tour1 = await Tour.findOne({
-      tontine: req.body.tontine,
-      cycle: req.body.cycle
-    }).sort('dateAttribution');
-
-    if (numeroTour === 1 || !tour1) {
-      // C'est le tour 1 : utiliser la date de début de la tontine (sans ajustement au dimanche)
-      dateReceptionPrevue = new Date(tontine.dateDebut);
-    } else {
-      // Tours suivants : calculer à partir de la date de début de la tontine + fréquence
-      dateReceptionPrevue = new Date(tontine.dateDebut);
-      let joursAjouter = 0;
-
-      switch (tontine.frequence) {
-        case 'hebdomadaire':
-          joursAjouter = (numeroTour - 1) * 7;
-          break;
-        case 'bimensuel':
-          joursAjouter = (numeroTour - 1) * 15;
-          break;
-        case 'mensuel':
-        default:
-          dateReceptionPrevue.setMonth(dateReceptionPrevue.getMonth() + (numeroTour - 1));
-          joursAjouter = 0;
-          break;
-      }
-
-      if (joursAjouter > 0) {
-        dateReceptionPrevue.setDate(dateReceptionPrevue.getDate() + joursAjouter);
-      }
-
-      // Trouver le premier dimanche du mois (seulement pour les tours suivants)
-      dateReceptionPrevue = getPremierDimancheDuMois(dateReceptionPrevue);
-    }
+    // Utiliser la fonction unifiée pour calculer la date de réception
+    const dateReceptionPrevue = calculerDateReceptionTour(tontine.dateDebut, numeroTour, tontine.frequence);
 
     // Calculer le montant réel des cotisations reçues pour ce tour spécifique
     let montantRecu = req.body.montantRecu;
@@ -358,42 +372,8 @@ router.post('/tirage/:tontineId', authorize('admin', 'tresorier'), async (req, r
     const toursExistantsDansCycle = toursAttribues.filter(t => t.cycle === tontine.cycleCourant);
     const numeroTour = toursExistantsDansCycle.length + 1;
     
-    let dateReceptionPrevue;
-
-    // Trouver le tour 1 du cycle comme référence
-    const tour1 = toursExistantsDansCycle.length > 0 
-      ? toursExistantsDansCycle.sort((a, b) => new Date(a.dateAttribution) - new Date(b.dateAttribution))[0]
-      : null;
-
-    if (numeroTour === 1 || !tour1) {
-      // C'est le tour 1 : utiliser la date de début de la tontine (sans ajustement au dimanche)
-      dateReceptionPrevue = new Date(tontine.dateDebut);
-    } else {
-      // Tours suivants : calculer à partir de la date de début de la tontine + fréquence
-      dateReceptionPrevue = new Date(tontine.dateDebut);
-      let joursAjouter = 0;
-
-      switch (tontine.frequence) {
-        case 'hebdomadaire':
-          joursAjouter = (numeroTour - 1) * 7;
-          break;
-        case 'bimensuel':
-          joursAjouter = (numeroTour - 1) * 15;
-          break;
-        case 'mensuel':
-        default:
-          dateReceptionPrevue.setMonth(dateReceptionPrevue.getMonth() + (numeroTour - 1));
-          joursAjouter = 0;
-          break;
-      }
-
-      if (joursAjouter > 0) {
-        dateReceptionPrevue.setDate(dateReceptionPrevue.getDate() + joursAjouter);
-      }
-
-      // Trouver le premier dimanche du mois (seulement pour les tours suivants)
-      dateReceptionPrevue = getPremierDimancheDuMois(dateReceptionPrevue);
-    }
+    // Utiliser la fonction unifiée pour calculer la date de réception
+    const dateReceptionPrevue = calculerDateReceptionTour(tontine.dateDebut, numeroTour, tontine.frequence);
 
     // Calculer le montant réel des cotisations reçues pour ce cycle (sera recalculé après création du tour)
     const contributionsDuCycle = await Contribution.find({
