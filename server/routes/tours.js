@@ -8,19 +8,23 @@ const BanqueCentrale = require('../models/BanqueCentrale');
 const Contribution = require('../models/Contribution');
 const { protect, authorize } = require('../middleware/auth');
 
-// Fonction utilitaire pour trouver le premier dimanche à partir d'une date donnée
-function getPremierDimanche(date) {
+// Fonction utilitaire pour trouver le premier dimanche du mois d'une date donnée
+function getPremierDimancheDuMois(date) {
   const d = new Date(date);
+  
+  // Aller au 1er jour du mois
+  d.setDate(1);
+  
   const jourSemaine = d.getDay(); // 0 = Dimanche, 1 = Lundi, ..., 6 = Samedi
   
   if (jourSemaine === 0) {
-    // C'est déjà un dimanche
+    // Le 1er du mois est déjà un dimanche
     return d;
   }
   
-  // Calculer le nombre de jours jusqu'au prochain dimanche
+  // Calculer le nombre de jours jusqu'au premier dimanche du mois
   const joursJusquAuDimanche = 7 - jourSemaine;
-  d.setDate(d.getDate() + joursJusquAuDimanche);
+  d.setDate(1 + joursJusquAuDimanche);
   
   return d;
 }
@@ -261,8 +265,8 @@ router.post('/', authorize('admin', 'tresorier'), [
         dateReceptionPrevue.setDate(dateReceptionPrevue.getDate() + joursAjouter);
       }
 
-      // Trouver le premier dimanche à partir de la date calculée (seulement pour les tours suivants)
-      dateReceptionPrevue = getPremierDimanche(dateReceptionPrevue);
+      // Trouver le premier dimanche du mois (seulement pour les tours suivants)
+      dateReceptionPrevue = getPremierDimancheDuMois(dateReceptionPrevue);
     }
 
     // Calculer le montant réel des cotisations reçues pour ce tour spécifique
@@ -384,8 +388,8 @@ router.post('/tirage/:tontineId', authorize('admin', 'tresorier'), async (req, r
         dateReceptionPrevue.setDate(dateReceptionPrevue.getDate() + joursAjouter);
       }
 
-      // Trouver le premier dimanche à partir de la date calculée (seulement pour les tours suivants)
-      dateReceptionPrevue = getPremierDimanche(dateReceptionPrevue);
+      // Trouver le premier dimanche du mois (seulement pour les tours suivants)
+      dateReceptionPrevue = getPremierDimancheDuMois(dateReceptionPrevue);
     }
 
     // Calculer le montant réel des cotisations reçues pour ce cycle (sera recalculé après création du tour)
