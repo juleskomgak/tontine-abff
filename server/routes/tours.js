@@ -219,13 +219,11 @@ router.post('/', authorize('admin', 'tresorier'), [
     }).sort('dateAttribution');
 
     if (numeroTour === 1 || !tour1) {
-      // C'est le tour 1 : utiliser la date actuelle ou la date de début de la tontine (la plus récente)
-      const maintenant = new Date();
-      const dateDebut = new Date(tontine.dateDebut);
-      dateReceptionPrevue = dateDebut > maintenant ? dateDebut : maintenant;
+      // C'est le tour 1 : utiliser la date de début de la tontine
+      dateReceptionPrevue = new Date(tontine.dateDebut);
     } else {
-      // Tours suivants : calculer à partir de la date de réception du tour 1
-      dateReceptionPrevue = new Date(tour1.dateReceptionPrevue);
+      // Tours suivants : calculer à partir de la date de début de la tontine + fréquence
+      dateReceptionPrevue = new Date(tontine.dateDebut);
       let joursAjouter = 0;
 
       switch (tontine.frequence) {
@@ -341,13 +339,11 @@ router.post('/tirage/:tontineId', authorize('admin', 'tresorier'), async (req, r
       : null;
 
     if (numeroTour === 1 || !tour1) {
-      // C'est le tour 1 : utiliser la date actuelle ou la date de début de la tontine (la plus récente)
-      const maintenant = new Date();
-      const dateDebut = new Date(tontine.dateDebut);
-      dateReceptionPrevue = dateDebut > maintenant ? dateDebut : maintenant;
+      // C'est le tour 1 : utiliser la date de début de la tontine
+      dateReceptionPrevue = new Date(tontine.dateDebut);
     } else {
-      // Tours suivants : calculer à partir de la date de réception du tour 1
-      dateReceptionPrevue = new Date(tour1.dateReceptionPrevue);
+      // Tours suivants : calculer à partir de la date de début de la tontine + fréquence
+      dateReceptionPrevue = new Date(tontine.dateDebut);
       let joursAjouter = 0;
 
       switch (tontine.frequence) {
