@@ -269,6 +269,9 @@ import { AideService, CategorieAide, AideAccordee, AideStats } from '../../servi
                   <mat-option [value]="cat._id">{{ cat.nom }} ({{ cat.montantDefaut | number:'1.0-0' }} FCFA)</mat-option>
                 }
               </mat-select>
+              @if (categories().length === 0) {
+                <mat-hint class="warn-hint">Aucune catégorie disponible. Allez dans l'onglet "Catégories d'aide" pour les initialiser.</mat-hint>
+              }
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="full-width">
@@ -634,6 +637,11 @@ import { AideService, CategorieAide, AideAccordee, AideStats } from '../../servi
         width: 100%;
       }
 
+      .warn-hint {
+        color: #f59e0b !important;
+        font-size: 12px;
+      }
+
       .dialog-actions {
         display: flex;
         justify-content: flex-end;
@@ -857,6 +865,9 @@ export class AidesComponent implements OnInit {
       description: '',
       dateEvenement: ''
     };
+    // Recharger les catégories et membres avant d'ouvrir le dialog
+    this.loadCategories();
+    this.loadMembresEligibles();
     this.showAideDialog = true;
   }
 
