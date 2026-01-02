@@ -44,7 +44,9 @@ app.use('/api/cartes-codebaf', require('./routes/cartes-codebaf'));
 app.get('/', (req, res) => {
   res.json({ 
     message: '🎉 Bienvenue sur l\'API de gestion de Tontine ABFF',
-    version: '1.0.0',
+    version: '1.0.1',
+    deployedAt: '2026-01-02T04:36:00Z',
+    features: ['getPremierDimancheDuMois-v2'],
     endpoints: {
       auth: '/api/auth',
       users: '/api/users',
