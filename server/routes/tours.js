@@ -283,7 +283,10 @@ router.post('/', authorize('admin', 'tresorier'), [
     }
 
     const tourData = {
-      ...req.body,
+      tontine: req.body.tontine,
+      beneficiaire: req.body.beneficiaire,
+      cycle: req.body.cycle,
+      modeAttribution: req.body.modeAttribution || 'manuel',
       montantRecu,
       numeroTour,
       dateReceptionPrevue,
