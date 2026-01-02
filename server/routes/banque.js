@@ -743,7 +743,7 @@ router.get('/', protect, authorize('admin'), async (req, res) => {
     
     // Ne récupérer que les banques liées à des tontines existantes
     const banques = await BanqueTontine.find({ tontine: { $in: tontineIds } })
-      .populate('tontine', 'nom montantCotisation nombreMembres statut')
+      .populate('tontine', 'nom montantCotisation nombreMembres statut dateDebut cycleCourant')
       .sort('-createdAt');
 
     // Filtrer les banques dont la tontine n'a pas été populée (cas rare)

@@ -61,6 +61,7 @@ import { BanqueCentrale, Tontine, CarteCodebafStats } from '../../models';
             <mat-form-field appearance="outline" class="banque-filter-field">
               <mat-label>Année</mat-label>
               <mat-select [value]="selectedYear()" (selectionChange)="selectedYear.set($event.value)">
+                <mat-option [value]="0">Toutes les années</mat-option>
                 @for (year of availableYears(); track year) {
                   <mat-option [value]="year">{{ year }}</mat-option>
                 }
@@ -83,14 +84,14 @@ import { BanqueCentrale, Tontine, CarteCodebafStats } from '../../models';
               <mat-card-content>
                 <div class="empty-state">
                   <mat-icon>account_balance</mat-icon>
-                  <h3>Aucune banque tontine pour {{ selectedYear() }}</h3>
+                  <h3>Aucune banque tontine {{ selectedYear() === 0 ? '' : 'pour ' + selectedYear() }}</h3>
                   <p>Aucune donnée bancaire disponible pour les tontines cette année</p>
                 </div>
               </mat-card-content>
             </mat-card>
           } @else {
             <div class="view-header">
-              <h2>Tontines - Année {{ selectedYear() }}</h2>
+              <h2>Tontines - {{ selectedYear() === 0 ? 'Toutes les années' : 'Année ' + selectedYear() }}</h2>
             </div>
             <div class="banque-stats-grid">
               <mat-card class="banque-stat-card solde">
@@ -173,14 +174,14 @@ import { BanqueCentrale, Tontine, CarteCodebafStats } from '../../models';
               <mat-card-content>
                 <div class="empty-state">
                   <mat-icon>group</mat-icon>
-                  <h3>Aucune donnée solidarité pour {{ selectedYear() }}</h3>
+                  <h3>Aucune donnée solidarité {{ selectedYear() === 0 ? '' : 'pour ' + selectedYear() }}</h3>
                   <p>Aucune statistique disponible pour les solidarités cette année</p>
                 </div>
               </mat-card-content>
             </mat-card>
           } @else {
             <div class="view-header">
-              <h2>Solidarités - Année {{ selectedYear() }}</h2>
+              <h2>Solidarités - {{ selectedYear() === 0 ? 'Toutes les années' : 'Année ' + selectedYear() }}</h2>
             </div>
             <div class="solidarite-stats">
               <div class="stats-grid">
@@ -223,14 +224,14 @@ import { BanqueCentrale, Tontine, CarteCodebafStats } from '../../models';
               <mat-card-content>
                 <div class="empty-state">
                   <mat-icon>credit_card</mat-icon>
-                  <h3>Aucune carte CODEBAF pour {{ selectedYear() }}</h3>
+                  <h3>Aucune carte CODEBAF {{ selectedYear() === 0 ? '' : 'pour ' + selectedYear() }}</h3>
                   <p>Aucune statistique disponible pour les cartes CODEBAF cette année</p>
                 </div>
               </mat-card-content>
             </mat-card>
           } @else {
             <div class="view-header">
-              <h2>Cartes CODEBAF - Année {{ selectedYear() }}</h2>
+              <h2>Cartes CODEBAF - {{ selectedYear() === 0 ? 'Toutes les années' : 'Année ' + selectedYear() }}</h2>
             </div>
             <div class="cartes-stats">
               <div class="stats-grid">
@@ -624,6 +625,11 @@ export class BanqueComponent implements OnInit {
   banques = computed(() => {
     const year = this.selectedYear();
     const tontines = this.allTontines();
+    
+    // Si year === 0, retourner toutes les banques
+    if (year === 0) {
+      return this.allBanques();
+    }
     
     return this.allBanques().filter(banque => {
       // Vérifier si la tontine est déjà populée
