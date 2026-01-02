@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -55,6 +55,15 @@ import { BanqueCentrale, Tontine, CarteCodebafStats } from '../../models';
                 <mat-option value="tontine">Tontine</mat-option>
                 <mat-option value="solidarite">Solidarites</mat-option>
                 <mat-option value="cartes">Cartes CODEBAF</mat-option>
+              </mat-select>
+            </mat-form-field>
+            
+            <mat-form-field appearance="outline" class="banque-filter-field">
+              <mat-label>Année</mat-label>
+              <mat-select [value]="selectedYear()" (selectionChange)="selectedYear.set($event.value)">
+                @for (year of availableYears(); track year) {
+                  <mat-option [value]="year">{{ year }}</mat-option>
+                }
               </mat-select>
             </mat-form-field>
           </div>
@@ -579,11 +588,33 @@ export class BanqueComponent implements OnInit {
   private snackBar = inject(MatSnackBar);
 
   loading = signal(true);
-  banques = signal<BanqueCentrale[]>([]);
-  tontines = signal<Tontine[]>([]);
+  allBanques = signal<BanqueCentrale[]>([]); // Toutes les banques (cache)
+  allTontines = signal<Tontine[]>([]); // Toutes les tontines (cache)
   selectedView = signal<'tontine'|'solidarite'|'cartes'>('tontine');
+  selectedYear = signal<number>(new Date().getFullYear());
+  availableYears = signal<number[]>([]);
   cartesStats = signal<CarteCodebafStats | null>(null);
   solidariteStats = signal<any>(null);
+
+  // Filtrer les banques par année (côté client)
+  banques = computed(() => {
+    const year = this.selectedYear();
+    return this.allBanques().filter(banque => {
+      if (!banque.createdAt) return true;
+      const banqueYear = new Date(banque.createdAt).getFullYear();
+      return banqueYear === year;
+    });
+  });
+
+  // Filtrer les tontines par année (côté client)
+  tontines = computed(() => {
+    const year = this.selectedYear();
+    return this.allTontines().filter(tontine => {
+      if (!tontine.dateDebut) return true;
+      const tontineYear = new Date(tontine.dateDebut).getFullYear();
+      return tontineYear === year;
+    });
+  });
 
   totalSolde = computed(() => {
     return this.banques().reduce((sum, b) => sum + b.soldeTotal, 0);
@@ -601,18 +632,42 @@ export class BanqueComponent implements OnInit {
     return this.banques().reduce((sum, b) => sum + b.totalRefus, 0);
   });
 
+  private isInitialized = false;
+
+  constructor() {
+    // Recharger les stats cartes CODEBAF et solidarités quand l'année change
+    effect(() => {
+      const year = this.selectedYear();
+      if (this.isInitialized && year) {
+        this.loadCartesAndSolidariteStats(year);
+      }
+    });
+  }
+
   ngOnInit() {
+    this.initializeYears();
     this.loadData();
+  }
+
+  initializeYears() {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    // Générer les années de 2024 à l'année courante + 1
+    for (let year = 2024; year <= currentYear + 1; year++) {
+      years.push(year);
+    }
+    this.availableYears.set(years.reverse());
+    this.selectedYear.set(currentYear);
   }
 
   loadData() {
     this.loading.set(true);
 
-    // Charger les banques
+    // Charger les banques (une seule fois, filtrage côté client)
     this.banqueService.getAllBanques().subscribe({
       next: (response) => {
         if (response.success && response.data) {
-          this.banques.set(response.data);
+          this.allBanques.set(response.data);
         }
       },
       error: (error) => {
@@ -620,17 +675,17 @@ export class BanqueComponent implements OnInit {
       }
     });
 
-    // Charger les tontines pour les noms
+    // Charger les tontines (une seule fois, filtrage côté client)
     this.tontineService.getTontines().subscribe({
       next: (response) => {
         if (response.success && response.data) {
-          this.tontines.set(response.data);
+          this.allTontines.set(response.data);
         }
       }
     });
 
-    // Charger les stats cartes CODEBAF
-    this.carteCodebafService.getStatistiques().subscribe({
+    // Charger les stats cartes CODEBAF avec l'année sélectionnée
+    this.carteCodebafService.getStatistiques(this.selectedYear()).subscribe({
       next: (response) => {
         if (response.success && response.data) {
           this.cartesStats.set(response.data);
@@ -639,15 +694,36 @@ export class BanqueComponent implements OnInit {
     });
 
     // Charger les stats solidarités
-    this.solidariteService.getStats().subscribe({
+    this.solidariteService.getStats(this.selectedYear()).subscribe({
       next: (response) => {
         if (response.success && response.data) {
           this.solidariteStats.set(response.data);
         }
         this.loading.set(false);
+        this.isInitialized = true;
       },
       error: () => {
         this.loading.set(false);
+        this.isInitialized = true;
+      }
+    });
+  }
+
+  // Méthode pour recharger uniquement les stats cartes et solidarités (quand l'année change)
+  loadCartesAndSolidariteStats(year: number) {
+    this.carteCodebafService.getStatistiques(year).subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          this.cartesStats.set(response.data);
+        }
+      }
+    });
+
+    this.solidariteService.getStats(year).subscribe({
+      next: (response) => {
+        if (response.success && response.data) {
+          this.solidariteStats.set(response.data);
+        }
       }
     });
   }
