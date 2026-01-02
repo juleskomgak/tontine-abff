@@ -83,12 +83,15 @@ import { BanqueCentrale, Tontine, CarteCodebafStats } from '../../models';
               <mat-card-content>
                 <div class="empty-state">
                   <mat-icon>account_balance</mat-icon>
-                  <h3>Aucune banque tontine</h3>
-                  <p>Aucune donnée bancaire disponible pour les tontines</p>
+                  <h3>Aucune banque tontine pour {{ selectedYear() }}</h3>
+                  <p>Aucune donnée bancaire disponible pour les tontines cette année</p>
                 </div>
               </mat-card-content>
             </mat-card>
           } @else {
+            <div class="view-header">
+              <h2>Tontines - Année {{ selectedYear() }}</h2>
+            </div>
             <div class="banque-stats-grid">
               <mat-card class="banque-stat-card solde">
                 <mat-card-content>
@@ -165,17 +168,20 @@ import { BanqueCentrale, Tontine, CarteCodebafStats } from '../../models';
           }
         } @else if (selectedView() === 'solidarite') {
           <!-- Vue Solidarité -->
-          @if (!solidariteStats()) {
+          @if (!solidariteStats() || solidariteStats()!.totalMembres === 0) {
             <mat-card class="empty-state-card">
               <mat-card-content>
                 <div class="empty-state">
                   <mat-icon>group</mat-icon>
-                  <h3>Aucune donnée solidarité</h3>
-                  <p>Aucune statistique disponible pour les solidarités</p>
+                  <h3>Aucune donnée solidarité pour {{ selectedYear() }}</h3>
+                  <p>Aucune statistique disponible pour les solidarités cette année</p>
                 </div>
               </mat-card-content>
             </mat-card>
           } @else {
+            <div class="view-header">
+              <h2>Solidarités - Année {{ selectedYear() }}</h2>
+            </div>
             <div class="solidarite-stats">
               <div class="stats-grid">
                 <mat-card class="stat-card">
@@ -212,17 +218,20 @@ import { BanqueCentrale, Tontine, CarteCodebafStats } from '../../models';
           }
         } @else if (selectedView() === 'cartes') {
           <!-- Vue Cartes CODEBAF -->
-          @if (!cartesStats()) {
+          @if (!cartesStats() || cartesStats()!.global.totalCartes === 0) {
             <mat-card class="empty-state-card">
               <mat-card-content>
                 <div class="empty-state">
                   <mat-icon>credit_card</mat-icon>
-                  <h3>Aucune carte CODEBAF</h3>
-                  <p>Aucune statistique disponible pour les cartes CODEBAF</p>
+                  <h3>Aucune carte CODEBAF pour {{ selectedYear() }}</h3>
+                  <p>Aucune statistique disponible pour les cartes CODEBAF cette année</p>
                 </div>
               </mat-card-content>
             </mat-card>
           } @else {
+            <div class="view-header">
+              <h2>Cartes CODEBAF - Année {{ selectedYear() }}</h2>
+            </div>
             <div class="cartes-stats">
               <div class="stats-grid">
                 <mat-card class="stat-card">
@@ -308,6 +317,21 @@ import { BanqueCentrale, Tontine, CarteCodebafStats } from '../../models';
         color: var(--text-secondary);
         margin: 4px 0 0 0;
         font-size: 16px;
+      }
+    }
+
+    .view-header {
+      margin-bottom: 20px;
+      
+      h2 {
+        font-size: 20px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0;
+        padding: 12px 16px;
+        background: #f8fafc;
+        border-radius: 8px;
+        border-left: 4px solid #2563eb;
       }
     }
 
@@ -693,6 +717,7 @@ export class BanqueComponent implements OnInit {
 
   loadData() {
     this.loading.set(true);
+    const year = this.selectedYear();
 
     // Charger les banques (une seule fois, filtrage côté client)
     this.banqueService.getAllBanques().subscribe({
@@ -715,8 +740,8 @@ export class BanqueComponent implements OnInit {
       }
     });
 
-    // Charger les stats cartes CODEBAF
-    this.carteCodebafService.getStatistiques().subscribe({
+    // Charger les stats cartes CODEBAF avec l'année sélectionnée
+    this.carteCodebafService.getStatistiques(year).subscribe({
       next: (response) => {
         if (response.success && response.data) {
           this.cartesStats.set(response.data);
@@ -724,8 +749,8 @@ export class BanqueComponent implements OnInit {
       }
     });
 
-    // Charger les stats solidarités
-    this.solidariteService.getStats().subscribe({
+    // Charger les stats solidarités avec l'année sélectionnée
+    this.solidariteService.getStats(year).subscribe({
       next: (response) => {
         if (response.success && response.data) {
           this.solidariteStats.set(response.data);
@@ -762,21 +787,31 @@ export class BanqueComponent implements OnInit {
   }
 
   loadCartesAndSolidariteStats(year: number) {
-    // Charger les stats cartes CODEBAF
-    this.carteCodebafService.getStatistiques().subscribe({
+    // Charger les stats cartes CODEBAF avec l'année
+    this.carteCodebafService.getStatistiques(year).subscribe({
       next: (response) => {
         if (response.success && response.data) {
           this.cartesStats.set(response.data);
+        } else {
+          this.cartesStats.set(null);
         }
+      },
+      error: () => {
+        this.cartesStats.set(null);
       }
     });
 
-    // Charger les stats solidarités
-    this.solidariteService.getStats().subscribe({
+    // Charger les stats solidarités avec l'année
+    this.solidariteService.getStats(year).subscribe({
       next: (response) => {
         if (response.success && response.data) {
           this.solidariteStats.set(response.data);
+        } else {
+          this.solidariteStats.set(null);
         }
+      },
+      error: () => {
+        this.solidariteStats.set(null);
       }
     });
   }
