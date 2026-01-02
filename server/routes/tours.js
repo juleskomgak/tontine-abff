@@ -236,7 +236,7 @@ router.post('/', authorize('admin', 'tresorier'), [
     }).sort('dateAttribution');
 
     if (numeroTour === 1 || !tour1) {
-      // C'est le tour 1 : utiliser la date de début de la tontine
+      // C'est le tour 1 : utiliser la date de début de la tontine (sans ajustement au dimanche)
       dateReceptionPrevue = new Date(tontine.dateDebut);
     } else {
       // Tours suivants : calculer à partir de la date de début de la tontine + fréquence
@@ -260,10 +260,10 @@ router.post('/', authorize('admin', 'tresorier'), [
       if (joursAjouter > 0) {
         dateReceptionPrevue.setDate(dateReceptionPrevue.getDate() + joursAjouter);
       }
-    }
 
-    // Trouver le premier dimanche à partir de la date calculée
-    dateReceptionPrevue = getPremierDimanche(dateReceptionPrevue);
+      // Trouver le premier dimanche à partir de la date calculée (seulement pour les tours suivants)
+      dateReceptionPrevue = getPremierDimanche(dateReceptionPrevue);
+    }
 
     // Calculer le montant réel des cotisations reçues pour ce tour spécifique
     let montantRecu = req.body.montantRecu;
@@ -359,7 +359,7 @@ router.post('/tirage/:tontineId', authorize('admin', 'tresorier'), async (req, r
       : null;
 
     if (numeroTour === 1 || !tour1) {
-      // C'est le tour 1 : utiliser la date de début de la tontine
+      // C'est le tour 1 : utiliser la date de début de la tontine (sans ajustement au dimanche)
       dateReceptionPrevue = new Date(tontine.dateDebut);
     } else {
       // Tours suivants : calculer à partir de la date de début de la tontine + fréquence
@@ -383,10 +383,10 @@ router.post('/tirage/:tontineId', authorize('admin', 'tresorier'), async (req, r
       if (joursAjouter > 0) {
         dateReceptionPrevue.setDate(dateReceptionPrevue.getDate() + joursAjouter);
       }
-    }
 
-    // Trouver le premier dimanche à partir de la date calculée
-    dateReceptionPrevue = getPremierDimanche(dateReceptionPrevue);
+      // Trouver le premier dimanche à partir de la date calculée (seulement pour les tours suivants)
+      dateReceptionPrevue = getPremierDimanche(dateReceptionPrevue);
+    }
 
     // Calculer le montant réel des cotisations reçues pour ce cycle (sera recalculé après création du tour)
     const contributionsDuCycle = await Contribution.find({
