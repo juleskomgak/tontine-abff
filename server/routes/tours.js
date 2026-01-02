@@ -8,6 +8,23 @@ const BanqueCentrale = require('../models/BanqueCentrale');
 const Contribution = require('../models/Contribution');
 const { protect, authorize } = require('../middleware/auth');
 
+// Fonction utilitaire pour trouver le premier dimanche à partir d'une date donnée
+function getPremierDimanche(date) {
+  const d = new Date(date);
+  const jourSemaine = d.getDay(); // 0 = Dimanche, 1 = Lundi, ..., 6 = Samedi
+  
+  if (jourSemaine === 0) {
+    // C'est déjà un dimanche
+    return d;
+  }
+  
+  // Calculer le nombre de jours jusqu'au prochain dimanche
+  const joursJusquAuDimanche = 7 - jourSemaine;
+  d.setDate(d.getDate() + joursJusquAuDimanche);
+  
+  return d;
+}
+
 // Fonction utilitaire pour recalculer le montant d'un tour
 async function recalculerMontantTour(tourId) {
   try {
@@ -245,6 +262,9 @@ router.post('/', authorize('admin', 'tresorier'), [
       }
     }
 
+    // Trouver le premier dimanche à partir de la date calculée
+    dateReceptionPrevue = getPremierDimanche(dateReceptionPrevue);
+
     // Calculer le montant réel des cotisations reçues pour ce tour spécifique
     let montantRecu = req.body.montantRecu;
     if (!montantRecu || montantRecu === 0) {
@@ -364,6 +384,9 @@ router.post('/tirage/:tontineId', authorize('admin', 'tresorier'), async (req, r
         dateReceptionPrevue.setDate(dateReceptionPrevue.getDate() + joursAjouter);
       }
     }
+
+    // Trouver le premier dimanche à partir de la date calculée
+    dateReceptionPrevue = getPremierDimanche(dateReceptionPrevue);
 
     // Calculer le montant réel des cotisations reçues pour ce cycle (sera recalculé après création du tour)
     const contributionsDuCycle = await Contribution.find({
