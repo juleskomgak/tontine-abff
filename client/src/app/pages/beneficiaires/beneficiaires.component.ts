@@ -1045,11 +1045,15 @@ export class BeneficiairesComponent implements OnInit {
     const tontineId = typeof tour.tontine === 'string' ? tour.tontine : tour.tontine._id;
     const beneficiaireId = typeof tour.beneficiaire === 'string' ? tour.beneficiaire : tour.beneficiaire._id;
 
-    // Récupérer les cotisations pour ce cycle et cette tontine
+    // Récupérer les cotisations pour cette tontine, ce cycle et ce tour spécifique
     const tourContributions = this.contributions().filter(c => {
       if (!c.tontine) return false;
       const cTontineId = typeof c.tontine === 'string' ? c.tontine : c.tontine._id;
-      return cTontineId === tontineId && c.cycle === tour.cycle && c.statut === 'recu';
+      // Filtrer par tontine, cycle, statut ET numéro de tour
+      return cTontineId === tontineId && 
+             c.cycle === tour.cycle && 
+             c.numeroTour === tour.numeroTour &&
+             c.statut === 'recu';
     });
 
     const totalRecu = tourContributions.reduce((sum, c) => sum + c.montant, 0);
@@ -1170,7 +1174,7 @@ export class BeneficiairesComponent implements OnInit {
     doc.setFont('helvetica', 'normal');
     doc.text(`Tontine: ${tontine.nom}`, 20, 35);
     doc.text(`Bénéficiaire: ${this.getMemberName(tour.beneficiaire)}`, 20, 42);
-    doc.text(`Cycle: ${tour.cycle}`, 20, 49);
+    doc.text(`Cycle: ${tour.cycle} - Tour: ${tour.numeroTour}`, 20, 49);
     doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, 20, 56);
 
     // Résumé
@@ -1211,7 +1215,7 @@ export class BeneficiairesComponent implements OnInit {
       });
     }
 
-    const fileName = `recu_${this.getMemberName(tour.beneficiaire).replace(/\s+/g, '_')}_cycle${tour.cycle}_${new Date().getTime()}.pdf`;
+    const fileName = `recu_${this.getMemberName(tour.beneficiaire).replace(/\s+/g, '_')}_cycle${tour.cycle}_tour${tour.numeroTour}_${new Date().getTime()}.pdf`;
     doc.save(fileName);
     this.snackBar.open('Reçu téléchargé avec succès', 'Fermer', { duration: 3000 });
   }

@@ -23,7 +23,7 @@ import { AuthService } from '../../services/auth.service';
 import { Member } from '../../models';
 import { MemberFilterComponent } from '../../shared/member-filter.component';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 @Component({
   selector: 'app-solidarite',
@@ -1753,7 +1753,7 @@ export class SolidariteComponent implements OnInit {
         paiement.methodePaiement || '-'
       ]);
 
-      (doc as any).autoTable({
+      autoTable(doc, {
         startY: yPosition,
         head: [['Date', 'Type', 'Période', 'Montant', 'Méthode']],
         body: tableData,
