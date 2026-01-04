@@ -322,11 +322,11 @@ router.get('/statuts', async (req, res) => {
         // Calculer le montant total payé
         const totalPaye = paiementsMembre.reduce((sum, p) => sum + p.montant, 0);
         
-        // Calculer le montant attendu jusqu'au mois actuel
-        const montantAttendu = config.montantMensuel * moisActuel;
+        // Le montant attendu est le montant ANNUEL complet
+        const montantAttendu = config.montantAnnuel || (config.montantMensuel * 12);
         
-        // Déterminer le statut basé sur le MONTANT PAYÉ vs MONTANT ATTENDU
-        // Le membre est à jour UNIQUEMENT si totalPaye >= montantAttendu
+        // Déterminer le statut basé sur le MONTANT PAYÉ vs MONTANT ANNUEL
+        // Le membre est à jour UNIQUEMENT si totalPaye >= montantAnnuel
         let statut = 'a_jour';
         const moisEnRetard = [];
         
@@ -344,7 +344,7 @@ router.get('/statuts', async (req, res) => {
             // Le membre a payé pour tous les mois mais avec un montant insuffisant
             // On calcule combien de mois équivalents il manque
             const moisEquivalentsPayes = Math.floor(totalPaye / config.montantMensuel);
-            for (let m = moisEquivalentsPayes + 1; m <= moisActuel; m++) {
+            for (let m = moisEquivalentsPayes + 1; m <= 12; m++) {
               moisEnRetard.push(m);
             }
           }
@@ -423,9 +423,10 @@ router.get('/statuts/:membreId', async (req, res) => {
       });
 
       const totalPaye = paiementsType.reduce((sum, p) => sum + p.montant, 0);
-      const montantAttendu = config.montantMensuel * moisActuel;
+      // Le montant attendu est le montant ANNUEL complet
+      const montantAttendu = config.montantAnnuel || (config.montantMensuel * 12);
       
-      // Déterminer le statut basé sur le MONTANT PAYÉ vs MONTANT ATTENDU
+      // Déterminer le statut basé sur le MONTANT PAYÉ vs MONTANT ANNUEL
       const moisEnRetard = [];
       let statut = 'a_jour';
       
@@ -439,7 +440,7 @@ router.get('/statuts/:membreId', async (req, res) => {
         // Si tous les mois semblent payés mais le montant est insuffisant
         if (moisEnRetard.length === 0 && totalPaye < montantAttendu) {
           const moisEquivalentsPayes = Math.floor(totalPaye / config.montantMensuel);
-          for (let m = moisEquivalentsPayes + 1; m <= moisActuel; m++) {
+          for (let m = moisEquivalentsPayes + 1; m <= 12; m++) {
             moisEnRetard.push(m);
           }
         }
