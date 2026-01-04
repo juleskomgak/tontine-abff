@@ -302,7 +302,7 @@ router.get('/statuts', async (req, res) => {
           p => p.membre.toString() === membre._id.toString() && p.typeSolidarite === config.nom
         );
 
-        // Calculer les mois payés
+        // Calculer les mois payés (pour affichage)
         const moisPayes = new Set();
         paiementsMembre.forEach(p => {
           if (p.frequence === 'mensuel') {
@@ -325,23 +325,36 @@ router.get('/statuts', async (req, res) => {
         // Calculer le montant attendu jusqu'au mois actuel
         const montantAttendu = config.montantMensuel * moisActuel;
         
-        // Déterminer le statut
+        // Déterminer le statut basé sur le MONTANT PAYÉ vs MONTANT ATTENDU
+        // Le membre est à jour UNIQUEMENT si totalPaye >= montantAttendu
         let statut = 'a_jour';
         const moisEnRetard = [];
-        for (let m = 1; m <= moisActuel; m++) {
-          if (!moisPayes.has(m)) {
-            moisEnRetard.push(m);
-          }
-        }
         
-        if (moisEnRetard.length > 0) {
+        if (totalPaye < montantAttendu) {
           statut = 'en_retard';
+          // Calculer les mois en retard pour affichage
+          for (let m = 1; m <= moisActuel; m++) {
+            if (!moisPayes.has(m)) {
+              moisEnRetard.push(m);
+            }
+          }
+          // Si tous les mois semblent payés mais le montant est insuffisant,
+          // indiquer le déficit
+          if (moisEnRetard.length === 0 && totalPaye < montantAttendu) {
+            // Le membre a payé pour tous les mois mais avec un montant insuffisant
+            // On calcule combien de mois équivalents il manque
+            const moisEquivalentsPayes = Math.floor(totalPaye / config.montantMensuel);
+            for (let m = moisEquivalentsPayes + 1; m <= moisActuel; m++) {
+              moisEnRetard.push(m);
+            }
+          }
         }
 
         membreStatut.solidarites[config.nom] = {
           libelle: config.libelle,
           totalPaye,
           montantAttendu,
+          montantRestant: Math.max(0, montantAttendu - totalPaye),
           moisPayes: Array.from(moisPayes).sort((a, b) => a - b),
           moisEnRetard,
           statut,
@@ -412,10 +425,23 @@ router.get('/statuts/:membreId', async (req, res) => {
       const totalPaye = paiementsType.reduce((sum, p) => sum + p.montant, 0);
       const montantAttendu = config.montantMensuel * moisActuel;
       
+      // Déterminer le statut basé sur le MONTANT PAYÉ vs MONTANT ATTENDU
       const moisEnRetard = [];
-      for (let m = 1; m <= moisActuel; m++) {
-        if (!moisPayes.has(m)) {
-          moisEnRetard.push(m);
+      let statut = 'a_jour';
+      
+      if (totalPaye < montantAttendu) {
+        statut = 'en_retard';
+        for (let m = 1; m <= moisActuel; m++) {
+          if (!moisPayes.has(m)) {
+            moisEnRetard.push(m);
+          }
+        }
+        // Si tous les mois semblent payés mais le montant est insuffisant
+        if (moisEnRetard.length === 0 && totalPaye < montantAttendu) {
+          const moisEquivalentsPayes = Math.floor(totalPaye / config.montantMensuel);
+          for (let m = moisEquivalentsPayes + 1; m <= moisActuel; m++) {
+            moisEnRetard.push(m);
+          }
         }
       }
 
@@ -426,7 +452,7 @@ router.get('/statuts/:membreId', async (req, res) => {
         montantRestant: Math.max(0, montantAttendu - totalPaye),
         moisPayes: Array.from(moisPayes).sort((a, b) => a - b),
         moisEnRetard,
-        statut: moisEnRetard.length > 0 ? 'en_retard' : 'a_jour',
+        statut,
         paiements: paiementsType
       };
     }
